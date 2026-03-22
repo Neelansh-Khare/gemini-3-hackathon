@@ -1,5 +1,5 @@
-"""Hybrid retrieval: vector search (content) + graph queries (structure)."""
+"""Context retrieval from connectors (ranked ContextPacket)."""
 
-from .hybrid import HybridRetriever
+from .context_assembler import assemble_context
 
-__all__ = ["HybridRetriever"]
+__all__ = ["assemble_context"]

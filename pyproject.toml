@@ -11,14 +11,12 @@ requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
     "google-genai>=1.0.0",
-    "mcp[cli]>=1.0.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
     "python-dotenv>=1.0.0",
     "networkx>=3.4.0",
-    "chromadb>=0.5.0",
 ]
 
 [project.optional-dependencies]

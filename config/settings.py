@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Storage
     lifegraph_db_path: str = "./data/lifegraph.db"
-    vector_db_path: str = "./data/vector_store"
+    audit_db_path: str = "./data/audit.db"
 
     # OAuth (Gmail, Calendar)
     google_client_id: str = ""
@@ -43,8 +43,8 @@ class Settings(BaseSettings):
         return Path(self.lifegraph_db_path)
 
     @property
-    def vector_store_path(self) -> Path:
-        return Path(self.vector_db_path)
+    def audit_db(self) -> Path:
+        return Path(self.audit_db_path)
 
 
 settings = Settings()

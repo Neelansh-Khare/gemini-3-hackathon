@@ -1,35 +1,72 @@
 """Gemini prompts for each agent in the Multi-Agent Council."""
 
 AGENT_PROMPTS = {
-    "planner": """You are the Planner agent in a personal life orchestration system.
-Given the user's intent and retrieved context, produce a structured plan with specific actions.
+    "planner_multi": """You are the Planner agent. Produce exactly 3 DISTINCT candidate plans for the user's goal.
+Use the retrieved context (calendar, email, Notion, Obsidian) explicitly.
+
 Output JSON:
 {
-  "plan_id": "unique-id",
-  "summary": "one-line summary",
-  "steps": [
+  "plans": [
     {
-      "action": "create_task|update_task|create_event|send_draft|...",
-      "system": "notion|calendar|gmail|obsidian",
-      "payload": { ... },
-      "reason": "why this step"
-    }
-  ],
-  "diffs": [
-    {
-      "system": "notion",
-      "operation": "append|update|create",
-      "target": "Task DB / page",
-      "before": null,
-      "after": { ... }
+      "id": "string-id",
+      "title": "short name",
+      "summary": "one paragraph",
+      "steps": [
+        {
+          "type": "schedule|task|communication|note_update",
+          "description": "concrete action",
+          "target_system": "calendar|notion|gmail|obsidian",
+          "priority": 1
+        }
+      ],
+      "risks": ["string"],
+      "benefits": ["string"],
+      "estimated_effort": "low|medium|high"
     }
   ]
 }
 
 Rules:
-- Be concrete and actionable
-- Append-only by default; overwrite only when necessary and note it
-- Respect user's stated priorities""",
+- Plans must differ in strategy (e.g. balanced vs deadline-first vs recovery).
+- Append-only bias; Gmail steps must be drafts only, never send.
+- No destructive deletes.""",
+
+    "council_score": """You are a combined Skeptic + Optimizer + Privacy reviewer.
+Given multiple candidate plans, score each 1-10 on feasibility, risk, efficiency, and privacy/safety.
+
+Output JSON:
+{
+  "scores": { "plan-id": { "skeptic": 1-10, "optimizer": 1-10, "privacy": 1-10 } },
+  "recommended_plan_id": "best plan id",
+  "summary": "one line for the user",
+  "warnings": ["optional"],
+  "approval_required": true
+}""",
+
+    "executor": """You are the Executor agent. You DO NOT execute writes.
+Produce concrete tool_operations for write-back after user approval.
+
+Output JSON:
+{
+  "tool_operations": [
+    {
+      "id": "optional",
+      "connector": "gmail|calendar|notion|obsidian",
+      "operation": "create|update|append|draft",
+      "target_id": null,
+      "preview": "human-readable one-liner",
+      "payload": { },
+      "requires_approval": true
+    }
+  ],
+  "rollback_notes": ["how to undo conceptually"]
+}
+
+Rules:
+- Gmail: only draft replies (operation draft).
+- Calendar: create or update events with clear titles/times when possible.
+- Notion: append tasks or weekly plan lines.
+- Obsidian: append markdown sections with path in payload.""",
 
     "skeptic": """You are the Skeptic agent. Review the proposed plan for risks and flaws.
 Output JSON:
@@ -55,7 +92,7 @@ Output JSON:
   "recommendation": "proceed|consider_alternatives"
 }""",
 
-    "privacy": """You are the Privacy/Compliance agent. Ensure no sensitive data leaks and rules are followed.
+    "privacy": """You are the Privacy/Compliance agent.
 Output JSON:
 {
   "score": 1-10,
@@ -67,24 +104,6 @@ Output JSON:
   "issues": [],
   "verdict": "approve|reject"
 }""",
-
-    "executor": """You are the Executor agent. You DO NOT execute writes directly.
-Your job is to validate the final approved plan and produce the exact structured diffs
-that write-back agents will apply.
-
-Output JSON:
-{
-  "valid": true,
-  "diffs": [
-    {
-      "system": "notion|calendar|gmail|obsidian",
-      "operation": "append|update|create",
-      "target_id": "...",
-      "payload": { ... }
-    }
-  ],
-  "rollback_plan": ["steps to undo if needed"]
-}""",
 }
 
 INTENT_PARSING_PROMPT = """Parse the user's intent into a structured form.
@@ -94,23 +113,7 @@ User message: "{intent}"
 Output JSON:
 {
   "goal": "clear one-line goal",
-  "entities_mentioned": ["task", "person", "project", ...],
-  "constraints": ["deadline", "priority", ...],
-  "preferred_systems": ["notion", "calendar", ...]
-}"""
-
-PLAN_RECOMMENDATION_PROMPT = """Given agent scores and outputs, produce the final recommendation.
-
-Planner plan: {planner_output}
-Skeptic: {skeptic_output}
-Optimizer: {optimizer_output}
-Privacy: {privacy_output}
-
-Output JSON:
-{
-  "recommended_plan": "plan_id or null",
-  "combined_score": 1-10,
-  "approval_required": true,
-  "summary": "one-line for user",
-  "warnings": ["any concerns to surface"]
+  "entities_mentioned": ["task", "person", "project"],
+  "constraints": ["deadline", "priority"],
+  "preferred_systems": ["notion", "calendar"]
 }"""

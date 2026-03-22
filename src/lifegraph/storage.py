@@ -130,7 +130,7 @@ class LifeGraphStorage:
 
 def _entity_factory(entity_type: EntityType, payload: dict) -> Entity:
     """Reconstruct entity from stored payload."""
-    from .schema import Person, Project, Goal, Task, Event, Decision
+    from .schema import Person, Project, Goal, Task, Event, Decision, Note, Communication
 
     mapping = {
         EntityType.PERSON: Person,
@@ -139,6 +139,8 @@ def _entity_factory(entity_type: EntityType, payload: dict) -> Entity:
         EntityType.TASK: Task,
         EntityType.EVENT: Event,
         EntityType.DECISION: Decision,
+        EntityType.NOTE: Note,
+        EntityType.COMMUNICATION: Communication,
     }
     cls = mapping.get(entity_type, Entity)
     return cls.model_validate(payload)

@@ -20,6 +20,8 @@ class EntityType(StrEnum):
     TASK = "task"
     EVENT = "event"
     DECISION = "decision"
+    NOTE = "note"
+    COMMUNICATION = "communication"
 
 
 class RelationType(StrEnum):
@@ -31,6 +33,8 @@ class RelationType(StrEnum):
     BLOCKS = "blocks"
     ASSIGNED_TO = "assigned_to"
     PART_OF = "part_of"
+    OWNED_BY = "owned_by"
+    MENTIONED_IN = "mentioned_in"
 
 
 # --- Base Entity ---
@@ -99,6 +103,21 @@ class Decision(Entity):
     type: EntityType = Field(default=EntityType.DECISION, init=False)
     outcome: str | None = None  # Once decided
     decided_at: datetime | None = None
+
+
+class Note(Entity):
+    """Markdown note (e.g. Obsidian)."""
+
+    type: EntityType = Field(default=EntityType.NOTE, init=False)
+    path: str | None = None
+
+
+class Communication(Entity):
+    """Email thread or message (Gmail draft/thread)."""
+
+    type: EntityType = Field(default=EntityType.COMMUNICATION, init=False)
+    thread_id: str | None = None
+    is_draft: bool = False
 
 
 # --- Relation ---
