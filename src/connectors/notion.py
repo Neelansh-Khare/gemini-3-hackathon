@@ -56,5 +56,25 @@ class NotionConnector(BaseConnector):
             return {"ok": True, "notion_id": nid}
         return {"ok": False, "error": "unsupported_op", "diff": diff}
 
+    async def rollback(self, diff: dict[str, Any]) -> dict[str, Any]:
+        op = str(diff.get("operation", "")).lower()
+        tid = diff.get("target_id")
+        if not tid:
+            # Special case for weekly plan lines which don't have IDs in this mock
+            payload = diff.get("payload", {})
+            if "weekly_plan_line" in payload or payload.get("type") == "weekly_plan":
+                line = payload.get("text") or payload.get("weekly_plan_line") or ""
+                if line in self._weekly_entries:
+                    self._weekly_entries.remove(line)
+                    return {"ok": True, "rolled_back": "weekly_plan_line"}
+            return {"ok": False, "error": "target_id_required"}
+        
+        if op in ("create", "append"):
+            for i, item in enumerate(self._items):
+                if item["id"] == tid:
+                    self._items.pop(i)
+                    return {"ok": True, "rolled_back": tid}
+        return {"ok": False, "error": "unsupported_rollback", "diff": diff}
+
     def can_handle(self, system: str) -> bool:
         return system.lower() == "notion"

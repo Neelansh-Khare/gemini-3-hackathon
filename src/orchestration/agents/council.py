@@ -155,21 +155,81 @@ Retrieved context items:
                 "warnings": [],
                 "approval_required": True,
             }
+
         plans_blob = [p.model_dump(mode="json") for p in plans]
-        prompt = f"""User intent: {json.dumps(intent)}
+        plans_json = json.dumps(plans_blob, indent=2)
+        intent_json = json.dumps(intent)
 
-Candidate plans:
-{json.dumps(plans_blob, indent=2)[:12000]}
-
-{AGENT_PROMPTS["council_score"]}"""
-        text = self._generate(prompt)
+        # 1. Skeptic Review
+        skeptic_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['skeptic']}"
+        skeptic_res = self._generate(skeptic_prompt)
+        skeptic_data = {}
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return {
+            skeptic_data = json.loads(skeptic_res).get("scores", {})
+        except Exception:
+            pass
+
+        # 2. Optimizer Review
+        optimizer_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['optimizer']}"
+        optimizer_res = self._generate(optimizer_prompt)
+        optimizer_data = {}
+        try:
+            optimizer_data = json.loads(optimizer_res).get("scores", {})
+        except Exception:
+            pass
+
+        # 3. Privacy Review
+        privacy_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['privacy']}"
+        privacy_res = self._generate(privacy_prompt)
+        privacy_data = {}
+        try:
+            privacy_data = json.loads(privacy_res).get("scores", {})
+        except Exception:
+            pass
+
+        # 4. Aggregate & Recommend (using a final summary call)
+        reviews_summary = {
+            "skeptic": skeptic_data,
+            "optimizer": optimizer_data,
+            "privacy": privacy_data
+        }
+        
+        agg_prompt = f"""User intent: {intent_json}
+Candidate plans: {plans_json}
+Agent Reviews: {json.dumps(reviews_summary, indent=2)}
+
+You are the Head of Council. Based on the Skeptic, Optimizer, and Privacy reviews, pick the best plan.
+Provide a final summary and any critical warnings.
+
+Output JSON:
+{{
+  "recommended_plan_id": "best plan id",
+  "summary": "one line for the user explaining why this was picked",
+  "warnings": ["any critical risks to highlight"],
+  "approval_required": true
+}}"""
+        agg_res = self._generate(agg_prompt)
+        try:
+            agg_data = json.loads(agg_res)
+        except Exception:
+            agg_data = {
                 "recommended_plan_id": plans[0].id,
-                "scores": {},
                 "summary": "Council deliberation completed.",
                 "warnings": [],
-                "approval_required": True,
+                "approval_required": True
             }
+
+        # Combine scores for the UI
+        final_scores = {}
+        for p in plans:
+            final_scores[p.id] = {
+                "skeptic": skeptic_data.get(p.id, {}).get("score", 5.0),
+                "optimizer": optimizer_data.get(p.id, {}).get("score", 5.0),
+                "privacy": privacy_data.get(p.id, {}).get("score", 5.0)
+            }
+        
+        agg_data["scores"] = final_scores
+        # Also include detailed reviews for frontend if needed (future proofing)
+        agg_data["reviews"] = reviews_summary
+        
+        return agg_data

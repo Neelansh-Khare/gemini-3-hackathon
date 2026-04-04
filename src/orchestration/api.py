@@ -14,7 +14,7 @@ from src.audit.audit_log import AuditLog
 from src.connectors.registry import mock_connectors
 from src.domain.prd_models import ToolOperation
 from src.orchestration.agents.council import AgentCouncil
-from src.orchestration.flows import execute_tool_operations
+from src.orchestration.flows import execute_tool_operations, rollback_tool_operations
 from src.orchestration.run_life_request import run_life_request
 
 
@@ -58,6 +58,12 @@ class ApproveRequest(BaseModel):
     tool_operations: list[ToolOperation]
 
 
+class RollbackRequest(BaseModel):
+    """Undo specific audit log entries."""
+
+    entry_ids: list[str]
+
+
 def _council() -> AgentCouncil:
     key = settings.gemini_api_key.strip() or None
     return AgentCouncil(api_key=key, model=settings.gemini_model)
@@ -95,6 +101,22 @@ async def approve_and_execute(req: ApproveRequest, request: Request) -> dict[str
     st = request.app.state
     return await execute_tool_operations(
         req.tool_operations,
+        st.gmail,
+        st.calendar,
+        st.notion,
+        st.obsidian,
+        audit=st.audit,
+    )
+
+
+@app.post("/rollback", response_model=dict[str, Any])
+async def rollback_entries(req: RollbackRequest, request: Request) -> dict[str, Any]:
+    """Undo specific audit log entries."""
+    if not req.entry_ids:
+        raise HTTPException(400, "entry_ids required")
+    st = request.app.state
+    return await rollback_tool_operations(
+        req.entry_ids,
         st.gmail,
         st.calendar,
         st.notion,

@@ -70,5 +70,17 @@ class CalendarConnector(BaseConnector):
                     return {"ok": True, "event_id": tid}
         return {"ok": False, "error": "unsupported_op", "diff": diff}
 
+    async def rollback(self, diff: dict[str, Any]) -> dict[str, Any]:
+        op = str(diff.get("operation", "")).lower()
+        tid = diff.get("target_id")
+        if not tid:
+            return {"ok": False, "error": "target_id_required"}
+        if op in ("create", "append", "draft"):
+            for i, e in enumerate(self._events):
+                if e["id"] == tid:
+                    self._events.pop(i)
+                    return {"ok": True, "rolled_back": tid}
+        return {"ok": False, "error": "unsupported_rollback", "diff": diff}
+
     def can_handle(self, system: str) -> bool:
         return system.lower() == "calendar"

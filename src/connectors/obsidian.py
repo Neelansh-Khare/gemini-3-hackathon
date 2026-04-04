@@ -45,5 +45,31 @@ class ObsidianConnector(BaseConnector):
             return {"ok": True, "path": path, "preview": block[:500]}
         return {"ok": False, "error": "unsupported_op", "diff": diff}
 
+    async def rollback(self, diff: dict[str, Any]) -> dict[str, Any]:
+        op = str(diff.get("operation", "")).lower()
+        path = diff.get("target_id") or diff.get("payload", {}).get("path")
+        if not path:
+            return {"ok": False, "error": "path_required"}
+        
+        if op == "append":
+            # For mock purposes, we just remove the appended block if we can find it
+            # In a real system, we'd need more precision
+            payload = diff.get("payload", {})
+            section = payload.get("section", "## Plan")
+            body = payload.get("body", "")
+            block = f"\n{section}\n{body}\n"
+            for n in self._notes:
+                if n["path"] == path:
+                    if block in n.get("body", ""):
+                        n["body"] = n["body"].replace(block, "", 1)
+                        return {"ok": True, "rolled_back": path}
+        elif op == "create":
+             for i, n in enumerate(self._notes):
+                if n["path"] == path:
+                    self._notes.pop(i)
+                    return {"ok": True, "rolled_back": path}
+                    
+        return {"ok": False, "error": "unsupported_rollback", "diff": diff}
+
     def can_handle(self, system: str) -> bool:
         return system.lower() == "obsidian"

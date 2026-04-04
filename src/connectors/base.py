@@ -32,6 +32,11 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
+    async def rollback(self, diff: dict[str, Any]) -> dict[str, Any]:
+        """Undo a previously applied diff. Returns result/confirmation."""
+        ...
+
+    @abstractmethod
     def can_handle(self, system: str) -> bool:
         """Whether this connector handles the given source system."""
         ...

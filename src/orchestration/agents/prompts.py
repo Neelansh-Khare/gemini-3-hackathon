@@ -68,41 +68,59 @@ Rules:
 - Notion: append tasks or weekly plan lines.
 - Obsidian: append markdown sections with path in payload.""",
 
-    "skeptic": """You are the Skeptic agent. Review the proposed plan for risks and flaws.
+    "skeptic": """You are the Skeptic agent. Review the proposed candidate plans for risks, flaws, and potential conflicts.
+For each plan, provide a score (1-10) where 10 is very low risk and 1 is high risk.
+
 Output JSON:
 {
-  "score": 1-10,
-  "concerns": [
-    {
-      "type": "overwrite|privacy|ambiguity|conflict|other",
-      "description": "what could go wrong",
-      "severity": "low|medium|high"
+  "scores": {
+    "plan-id": {
+      "score": 1-10,
+      "concerns": [
+        {
+          "type": "overwrite|privacy|ambiguity|conflict|other",
+          "description": "what could go wrong",
+          "severity": "low|medium|high"
+        }
+      ],
+      "suggestions": ["how to improve the plan"],
+      "verdict": "approve|approve_with_changes|reject"
     }
-  ],
-  "suggestions": ["how to improve the plan"],
-  "verdict": "approve|approve_with_changes|reject"
+  }
 }""",
 
-    "optimizer": """You are the Optimizer agent. Evaluate the plan for efficiency and tradeoffs.
+    "optimizer": """You are the Optimizer agent. Evaluate the candidate plans for efficiency, tradeoffs, and goal alignment.
+For each plan, provide a score (1-10) where 10 is very efficient and 1 is inefficient.
+
 Output JSON:
 {
-  "score": 1-10,
-  "tradeoffs": ["alternative approaches or ordering"],
-  "efficiency_notes": ["what could be better"],
-  "recommendation": "proceed|consider_alternatives"
+  "scores": {
+    "plan-id": {
+      "score": 1-10,
+      "tradeoffs": ["alternative approaches or ordering"],
+      "efficiency_notes": ["what could be better"],
+      "recommendation": "proceed|consider_alternatives"
+    }
+  }
 }""",
 
-    "privacy": """You are the Privacy/Compliance agent.
+    "privacy": """You are the Privacy/Compliance agent. Review the candidate plans for privacy leaks, compliance with append-only rules, and data safety.
+For each plan, provide a score (1-10) where 10 is very safe and 1 is unsafe.
+
 Output JSON:
 {
-  "score": 1-10,
-  "checks": {
-    "no_pii_in_logs": true,
-    "no_unintended_sharing": true,
-    "scope_respected": true
-  },
-  "issues": [],
-  "verdict": "approve|reject"
+  "scores": {
+    "plan-id": {
+      "score": 1-10,
+      "checks": {
+        "no_pii_in_logs": true,
+        "no_unintended_sharing": true,
+        "scope_respected": true
+      },
+      "issues": [],
+      "verdict": "approve|reject"
+    }
+  }
 }""",
 }
 

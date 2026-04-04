@@ -62,5 +62,17 @@ class GmailConnector(BaseConnector):
             return {"ok": True, "draft_id": draft_id, "preview": draft["body"][:500]}
         return {"ok": False, "error": "unsupported_op", "diff": diff}
 
+    async def rollback(self, diff: dict[str, Any]) -> dict[str, Any]:
+        op = str(diff.get("operation", "")).lower()
+        tid = diff.get("target_id")
+        if not tid:
+            return {"ok": False, "error": "target_id_required"}
+        if op in ("draft", "create", "append", "update"):
+            for i, d in enumerate(self._drafts):
+                if d["id"] == tid:
+                    self._drafts.pop(i)
+                    return {"ok": True, "rolled_back": tid}
+        return {"ok": False, "error": "unsupported_rollback", "diff": diff}
+
     def can_handle(self, system: str) -> bool:
         return system.lower() == "gmail"
