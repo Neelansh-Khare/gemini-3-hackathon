@@ -58,25 +58,39 @@ def enrich_operations_with_payloads(
     out: list[ToolOperation] = []
     for op in ops:
         pl = dict(op.payload)
+        preview = op.preview
+        
         if op.connector == ConnectorName.GMAIL and op.operation == OperationKind.DRAFT:
+            subject = pl.get("subject") or "Re: Q1 roadmap — priorities"
+            pl.setdefault("subject", subject)
             pl.setdefault(
                 "body",
                 f"Hi — thanks for the nudge. Here are my top priorities for next week:\n"
                 f"1) Life OS demo\n2) Product review prep\n3) Team follow-ups\n\nContext ref: {gmail_ctx[:120]}",
             )
-            pl.setdefault("subject", "Re: Q1 roadmap — priorities")
             pl.setdefault("thread_id", "th_alex_q1")
+            preview = f"Gmail: Draft reply '{subject}'"
+            
         elif op.connector == ConnectorName.CALENDAR and op.operation == OperationKind.CREATE:
-            pl.setdefault("title", "Deep work block")
+            title = pl.get("title") or "Deep work block"
+            pl.setdefault("title", title)
             pl.setdefault("location", "Focus")
+            preview = f"Calendar: Create event '{title}'"
+            
         elif op.connector == ConnectorName.NOTION:
-            pl.setdefault("title", "Weekly plan line")
+            title = pl.get("title") or "Weekly plan line"
+            pl.setdefault("title", title)
             pl.setdefault("text", f"Aligned with plan: {plan.title}")
             pl.setdefault("type", "weekly_plan")
+            preview = f"Notion: Append '{title}' to Weekly Plan"
+            
         elif op.connector == ConnectorName.OBSIDIAN:
-            pl.setdefault("path", "journal/2025-03.md")
+            path = pl.get("path") or "journal/2025-03.md"
+            pl.setdefault("path", path)
             pl.setdefault("section", "## Weekly plan")
             pl.setdefault("body", f"- {plan.summary}\n")
+            preview = f"Obsidian: Append plan to {path}"
+            
         new_id = op.id or str(uuid.uuid4())
         out.append(
             ToolOperation(
@@ -84,7 +98,7 @@ def enrich_operations_with_payloads(
                 connector=op.connector,
                 operation=op.operation,
                 target_id=op.target_id,
-                preview=op.preview[:500],
+                preview=preview[:500],
                 payload=pl,
                 requires_approval=True,
             )

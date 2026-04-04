@@ -52,6 +52,19 @@ export async function getAudit(limit = 100) {
   return parsed.data;
 }
 
+export async function postRollback(entry_ids: string[]) {
+  const res = await fetch(`${getApiBase()}/rollback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entry_ids }),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<{ rolled_back: unknown[] }>;
+}
+
 export async function postResetDemo() {
   const res = await fetch(`${getApiBase()}/demo/reset`, { method: "POST" });
   if (!res.ok) throw new Error(`Reset ${res.status}`);

@@ -47,11 +47,24 @@ def tool_ops_from_plan(plan: CandidatePlan) -> list[ToolOperation]:
     for step in plan.steps:
         cid = _connector_for_step(step.type, step.target_system.value)
         op = _operation_for_step(step.type)
-        preview = f"[{cid.value}] {op.value}: {step.description}"
+        
+        # Enhanced descriptive preview
+        if cid == ConnectorName.CALENDAR:
+            preview = f"Calendar: Schedule '{step.description}'"
+        elif cid == ConnectorName.GMAIL:
+            preview = f"Gmail: Draft reply for '{step.description}'"
+        elif cid == ConnectorName.NOTION:
+            preview = f"Notion: Add task '{step.description}'"
+        elif cid == ConnectorName.OBSIDIAN:
+            preview = f"Obsidian: Log note '{step.description}'"
+        else:
+            preview = f"[{cid.value}] {op.value}: {step.description}"
+            
         payload: dict[str, Any] = {
             "step_type": step.type.value,
             "target_system": step.target_system.value,
             "priority": step.priority,
+            "description": step.description,
         }
         ops.append(
             ToolOperation(

@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { getAudit, postApprove, postIntent, postResetDemo, type ToolOperation } from "@/lib/api";
+import { getAudit, postApprove, postIntent, postResetDemo, postRollback, type ToolOperation } from "@/lib/api";
 import type { z } from "zod";
 import { IntentResponseSchema } from "@/lib/schemas";
 
@@ -96,6 +96,18 @@ export default function Home() {
       await loadAudit();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Execute failed");
+    } finally {
+      setExecLoading(false);
+    }
+  };
+
+  const rollbackEntry = async (id: string) => {
+    setExecLoading(true);
+    try {
+      await postRollback([id]);
+      await loadAudit();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Rollback failed");
     } finally {
       setExecLoading(false);
     }
@@ -355,10 +367,23 @@ export default function Home() {
                 <ul className="space-y-2 text-xs text-zinc-400">
                   {audit.length ? (
                     audit.map((a) => (
-                      <li key={a.id} className="rounded border border-zinc-800 p-2">
-                        <span className="text-zinc-500">{a.timestamp}</span>{" "}
-                        <span className="text-indigo-400">{a.connector}</span> · {a.operation}
-                        <p className="mt-1 text-zinc-500">{a.payload_summary}</p>
+                      <li key={a.id} className="group relative rounded border border-zinc-800 p-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <span className="text-zinc-500">{a.timestamp}</span>{" "}
+                            <span className="text-indigo-400">{a.connector}</span> · {a.operation}
+                            <p className="mt-1 text-zinc-500">{a.payload_summary}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px] opacity-0 group-hover:opacity-100"
+                            onClick={() => void rollbackEntry(a.id)}
+                            disabled={execLoading}
+                          >
+                            Undo
+                          </Button>
+                        </div>
                       </li>
                     ))
                   ) : (
