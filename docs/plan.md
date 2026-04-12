@@ -60,7 +60,14 @@ While the foundation is strong, the following steps are needed to reach full "St
 
 ## Next Action Plan (Immediate)
 
-1. **[Backend]** Refactor `AgentCouncil` to support sequential or parallel deliberation from separate agent prompts (Skeptic, Optimizer, Privacy).
-2. **[Backend]** Implement a `POST /rollback` endpoint that can undo the last N actions from the audit log.
-3. **[Frontend]** Add "Undo" button to the Audit Log UI.
-4. **[Backend]** Enhance `generate_diffs.py` to produce more descriptive `preview` strings for the UI.
+1. [x] **[Backend]** Refactor `AgentCouncil` to support sequential or parallel deliberation from separate agent prompts (Skeptic, Optimizer, Privacy).
+2. [x] **[Backend]** Implement a `POST /rollback` endpoint that can undo the last N actions from the audit log.
+3. [x] **[Frontend]** Add "Undo" button to the Audit Log UI.
+4. [x] **[Backend]** Enhance `generate_diffs.py` to produce more descriptive `preview` strings for the UI.
+
+## Phase 1 & 2 Refinement (Next Tasks)
+
+1. **[Backend]** Parallelize `AgentCouncil` deliberation and planner diversity calls.
+2. **[Frontend]** Implement "Visual Diff" component (replaces raw JSON with pretty summary).
+3. **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
+

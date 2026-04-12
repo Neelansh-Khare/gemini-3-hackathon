@@ -22,6 +22,79 @@ type AuditEntry = {
   payload_summary: string;
 };
 
+function VisualDiff({ op }: { op: ToolOperation }) {
+  const p = op.payload;
+  if (op.connector === "calendar") {
+    return (
+      <div className="mt-2 space-y-1 text-[10px] text-zinc-400">
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Title:</span>{" "}
+          <span className="text-zinc-300">{p.title}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">When:</span> <span>{p.start || "—"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Where:</span> <span>{p.location || "—"}</span>
+        </div>
+      </div>
+    );
+  }
+  if (op.connector === "gmail") {
+    return (
+      <div className="mt-2 space-y-1 text-[10px] text-zinc-400">
+        <div className="flex justify-between">
+          <span className="text-zinc-500">To:</span> <span className="text-zinc-300">{p.to || "—"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Subject:</span>{" "}
+          <span className="font-medium text-zinc-300">{p.subject}</span>
+        </div>
+        <div className="mt-1 max-h-24 overflow-auto border-t border-zinc-800 pt-1 text-zinc-500 italic">
+          {p.body}
+        </div>
+      </div>
+    );
+  }
+  if (op.connector === "notion") {
+    return (
+      <div className="mt-2 space-y-1 text-[10px] text-zinc-400">
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Item:</span>{" "}
+          <span className="text-zinc-300">{p.title}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Type:</span> <span>{p.type || p.item_type || "task"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Status:</span> <span>{p.status || "todo"}</span>
+        </div>
+      </div>
+    );
+  }
+  if (op.connector === "obsidian") {
+    return (
+      <div className="mt-2 space-y-1 text-[10px] text-zinc-400">
+        <div className="flex justify-between">
+          <span className="text-zinc-500">File:</span>{" "}
+          <span className="text-indigo-300">{p.path}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Section:</span> <span>{p.section}</span>
+        </div>
+        <div className="mt-1 max-h-20 overflow-auto border-t border-zinc-800 pt-1 whitespace-pre-wrap text-[9px] text-zinc-500">
+          {p.body}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <pre className="mt-2 max-h-28 overflow-auto rounded bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-500">
+      {JSON.stringify(op.payload, null, 2)}
+    </pre>
+  );
+}
+
 export default function Home() {
   const [intentText, setIntentText] = useState(
     "Plan my next week around my meetings, deadlines, workouts, and follow-ups",
@@ -270,6 +343,28 @@ export default function Home() {
                     <p className="mt-2 text-xs text-zinc-600">
                       Risks: {p.risks.join("; ") || "—"} · Benefits: {p.benefits.join("; ") || "—"}
                     </p>
+                    {result.council_recommendation?.scores?.[p.id] && (
+                      <div className="mt-2 flex gap-3 text-[10px]">
+                        <span className="text-zinc-500">
+                          Skeptic:{" "}
+                          <span className="text-zinc-300">
+                            {result.council_recommendation.scores[p.id].skeptic}/10
+                          </span>
+                        </span>
+                        <span className="text-zinc-500">
+                          Optimizer:{" "}
+                          <span className="text-zinc-300">
+                            {result.council_recommendation.scores[p.id].optimizer}/10
+                          </span>
+                        </span>
+                        <span className="text-zinc-500">
+                          Privacy:{" "}
+                          <span className="text-zinc-300">
+                            {result.council_recommendation.scores[p.id].privacy}/10
+                          </span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (
@@ -325,9 +420,7 @@ export default function Home() {
                             </span>
                           </div>
                           <p className="mt-1 font-mono text-xs text-zinc-300">{op.preview}</p>
-                          <pre className="mt-2 max-h-28 overflow-auto rounded bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-500">
-                            {JSON.stringify(op.payload, null, 2)}
-                          </pre>
+                          <VisualDiff op={op} />
                         </div>
                       </li>
                     ))

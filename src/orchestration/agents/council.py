@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -74,21 +75,21 @@ class AgentCouncil:
         else:
             self._client = None
 
-    def _generate(self, prompt: str) -> str:
+    async def _generate(self, prompt: str) -> str:
         if not self._client:
             return "{}"
         config = types.GenerateContentConfig(
             temperature=0.2,
             response_mime_type="application/json",
         )
-        response = self._client.models.generate_content(
+        response = await self._client.aio.models.generate_content(
             model=self._model,
             contents=prompt,
             config=config,
         )
         return response.text or "{}"
 
-    def parse_intent(self, user_message: str) -> dict[str, Any]:
+    async def parse_intent(self, user_message: str) -> dict[str, Any]:
         if not self._client:
             return {
                 "goal": user_message,
@@ -97,7 +98,7 @@ class AgentCouncil:
                 "preferred_systems": [],
             }
         prompt = INTENT_PARSING_PROMPT.format(intent=user_message)
-        text = self._generate(prompt)
+        text = await self._generate(prompt)
         try:
             return json.loads(text)
         except json.JSONDecodeError:
@@ -108,31 +109,57 @@ class AgentCouncil:
                 "preferred_systems": [],
             }
 
-    def run_planner_multi(
+    async def run_planner_multi(
         self,
         intent: dict[str, Any],
         context_items: list[dict[str, Any]],
     ) -> list[CandidatePlan]:
+        """Produce 3 distinct plans (Balanced, Aggressive, Conservative) in parallel."""
         if not self._client:
             return seed_candidate_plans()
+        
         ctx_str = json.dumps(context_items, indent=2, default=str)[:8000]
-        prompt = f"""User goal: {json.dumps(intent)}
-
+        
+        strategies = [
+            ("balanced", "A balanced approach minimizing risk while ensuring progress."),
+            ("aggressive", "An aggressive, deadline-focused approach prioritizing speed and output."),
+            ("conservative", "A conservative/recovery approach prioritizing safety, verification, and minimal impact."),
+        ]
+        
+        async def get_plan(id_tag: str, strategy: str) -> list[CandidatePlan]:
+            prompt = f"""User goal: {json.dumps(intent)}
+Strategy: {strategy}
 Retrieved context items:
 {ctx_str}
 
-{AGENT_PROMPTS["planner_multi"]}"""
-        text = self._generate(prompt)
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            return seed_candidate_plans()
-        plans = _parse_plans_from_json(data)
-        if len(plans) < 2:
-            return seed_candidate_plans()
-        return plans[:3]
+{AGENT_PROMPTS["planner_multi"]}
+Produce exactly ONE plan with id 'plan-{id_tag}'.
+"""
+            text = await self._generate(prompt)
+            try:
+                data = json.loads(text)
+                # If the LLM returns multiple plans, we just take the first one and ensure ID
+                plans = _parse_plans_from_json(data)
+                if plans:
+                    plans[0].id = f"plan-{id_tag}"
+                    return [plans[0]]
+            except Exception:
+                pass
+            return []
 
-    def score_and_recommend(
+        # Run strategies in parallel
+        tasks = [get_plan(tag, strat) for tag, strat in strategies]
+        results = await asyncio.gather(*tasks)
+        
+        all_plans: list[CandidatePlan] = []
+        for r in results:
+            all_plans.extend(r)
+            
+        if len(all_plans) < 2:
+            return seed_candidate_plans()
+        return all_plans[:3]
+
+    async def score_and_recommend(
         self,
         plans: list[CandidatePlan],
         intent: dict[str, Any],
@@ -160,32 +187,21 @@ Retrieved context items:
         plans_json = json.dumps(plans_blob, indent=2)
         intent_json = json.dumps(intent)
 
-        # 1. Skeptic Review
-        skeptic_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['skeptic']}"
-        skeptic_res = self._generate(skeptic_prompt)
-        skeptic_data = {}
-        try:
-            skeptic_data = json.loads(skeptic_res).get("scores", {})
-        except Exception:
-            pass
+        async def run_review(agent_key: str) -> dict[str, Any]:
+            prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS[agent_key]}"
+            res = await self._generate(prompt)
+            try:
+                return json.loads(res).get("scores", {})
+            except Exception:
+                return {}
 
-        # 2. Optimizer Review
-        optimizer_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['optimizer']}"
-        optimizer_res = self._generate(optimizer_prompt)
-        optimizer_data = {}
-        try:
-            optimizer_data = json.loads(optimizer_res).get("scores", {})
-        except Exception:
-            pass
-
-        # 3. Privacy Review
-        privacy_prompt = f"User intent: {intent_json}\n\nCandidate plans:\n{plans_json}\n\n{AGENT_PROMPTS['privacy']}"
-        privacy_res = self._generate(privacy_prompt)
-        privacy_data = {}
-        try:
-            privacy_data = json.loads(privacy_res).get("scores", {})
-        except Exception:
-            pass
+        # Run reviews in parallel
+        results = await asyncio.gather(
+            run_review("skeptic"),
+            run_review("optimizer"),
+            run_review("privacy")
+        )
+        skeptic_data, optimizer_data, privacy_data = results
 
         # 4. Aggregate & Recommend (using a final summary call)
         reviews_summary = {
@@ -208,7 +224,7 @@ Output JSON:
   "warnings": ["any critical risks to highlight"],
   "approval_required": true
 }}"""
-        agg_res = self._generate(agg_prompt)
+        agg_res = await self._generate(agg_prompt)
         try:
             agg_data = json.loads(agg_res)
         except Exception:
@@ -233,3 +249,4 @@ Output JSON:
         agg_data["reviews"] = reviews_summary
         
         return agg_data
+

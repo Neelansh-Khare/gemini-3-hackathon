@@ -44,12 +44,12 @@ async def run_life_request(
     gemini_model: str = "gemini-2.0-flash",
 ) -> dict[str, Any]:
     """Full pipeline for POST /intent."""
-    intent = council.parse_intent(user_intent)
+    intent = await council.parse_intent(user_intent)
     packet = assemble_context(user_intent, gmail, calendar, notion, obsidian)
     ctx_items = [i.model_dump(mode="json") for i in packet.items]
 
-    plans = council.run_planner_multi(intent, ctx_items)
-    rec = council.score_and_recommend(plans, intent)
+    plans = await council.run_planner_multi(intent, ctx_items)
+    rec = await council.score_and_recommend(plans, intent)
     chosen = _pick_plan(plans, rec.get("recommended_plan_id"))
 
     context_snippets = {
