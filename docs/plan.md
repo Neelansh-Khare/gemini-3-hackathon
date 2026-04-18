@@ -49,7 +49,7 @@ While the foundation is strong, the following steps are needed to reach full "St
     - Implement a simple vector-based retrieval if the dataset grows, or improve the heuristic to better handle "importance" vs "recency" tradeoffs.
 
 ### Phase 3: Polish & UX (Stretch Goals)
-1. **LifeGraph Visualization**: 
+1. [x] **LifeGraph Visualization**: 
     - Add a "Graph View" component to show how a Task relates to a Goal or an Email thread.
 2. **Real API Integration**: 
     - Add optional OAuth/API Key support for users who want to connect real accounts (keeping mock mode as the default for demos).
@@ -67,7 +67,7 @@ While the foundation is strong, the following steps are needed to reach full "St
 
 ## Phase 1 & 2 Refinement (Next Tasks)
 
-1. **[Backend]** Parallelize `AgentCouncil` deliberation and planner diversity calls.
-2. **[Frontend]** Implement "Visual Diff" component (replaces raw JSON with pretty summary).
-3. **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
+1. [x] **[Backend]** Parallelize `AgentCouncil` deliberation and planner diversity calls.
+2. [x] **[Frontend]** Implement "Visual Diff" component (replaces raw JSON with pretty summary).
+3. [x] **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
 

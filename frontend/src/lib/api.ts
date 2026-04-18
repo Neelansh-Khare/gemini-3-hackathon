@@ -70,3 +70,14 @@ export async function postResetDemo() {
   if (!res.ok) throw new Error(`Reset ${res.status}`);
   return res.json() as Promise<{ status: string }>;
 }
+
+export async function getGraph() {
+  const res = await fetch(`${getApiBase()}/graph`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Graph ${res.status}`);
+  return res.json() as Promise<{
+    nodes: Array<{ id: string; type: string; title: string; description: string }>;
+    edges: Array<{ source: string; target: string; type: string }>;
+  }>;
+}

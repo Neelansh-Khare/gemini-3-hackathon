@@ -11,7 +11,9 @@ from pydantic import BaseModel
 
 from config import settings
 from src.audit.audit_log import AuditLog
+from src.lifegraph.storage import LifeGraphStorage
 from src.connectors.registry import mock_connectors
+from src.connectors.seed import seed_lifegraph
 from src.domain.prd_models import ToolOperation
 from src.orchestration.agents.council import AgentCouncil
 from src.orchestration.flows import execute_tool_operations, rollback_tool_operations
@@ -26,6 +28,10 @@ async def lifespan(app: FastAPI):
     app.state.notion = n
     app.state.obsidian = ob
     app.state.audit = AuditLog(settings.audit_db)
+    app.state.lifegraph = LifeGraphStorage(settings.lifegraph_db)
+    # Seed if empty
+    if not list(app.state.lifegraph.load().all_entities()):
+        seed_lifegraph(app.state.lifegraph)
     yield
 
 
@@ -129,6 +135,29 @@ async def rollback_entries(req: RollbackRequest, request: Request) -> dict[str, 
 async def list_audit(request: Request, limit: int = 100) -> dict[str, Any]:
     entries = request.app.state.audit.list_recent(limit=limit)
     return {"entries": [e.model_dump(mode="json") for e in entries]}
+
+
+@app.get("/graph", response_model=dict[str, Any])
+async def get_graph(request: Request) -> dict[str, Any]:
+    """Return nodes and edges for LifeGraph visualization."""
+    st = request.app.state
+    graph = st.lifegraph.load()
+    nodes = []
+    for entity in graph.all_entities():
+        nodes.append({
+            "id": entity.id,
+            "type": entity.type.value,
+            "title": entity.title,
+            "description": entity.description,
+        })
+    edges = []
+    for u, v, rel in graph.all_relations():
+        edges.append({
+            "source": u,
+            "target": v,
+            "type": rel.relation_type.value,
+        })
+    return {"nodes": nodes, "edges": edges}
 
 
 @app.post("/demo/reset", response_model=dict[str, str])

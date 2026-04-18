@@ -132,7 +132,7 @@ Strategy: {strategy}
 Retrieved context items:
 {ctx_str}
 
-{AGENT_PROMPTS["planner_multi"]}
+{AGENT_PROMPTS["planner_single"]}
 Produce exactly ONE plan with id 'plan-{id_tag}'.
 """
             text = await self._generate(prompt)

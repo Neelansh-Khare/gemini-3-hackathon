@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { getAudit, postApprove, postIntent, postResetDemo, postRollback, type ToolOperation } from "@/lib/api";
+import { getAudit, getGraph, postApprove, postIntent, postResetDemo, postRollback, type ToolOperation } from "@/lib/api";
 import type { z } from "zod";
 import { IntentResponseSchema } from "@/lib/schemas";
 
@@ -20,6 +20,11 @@ type AuditEntry = {
   connector: string;
   operation: string;
   payload_summary: string;
+};
+
+type GraphData = {
+  nodes: Array<{ id: string; type: string; title: string; description: string }>;
+  edges: Array<{ source: string; target: string; type: string }>;
 };
 
 function VisualDiff({ op }: { op: ToolOperation }) {
@@ -95,6 +100,46 @@ function VisualDiff({ op }: { op: ToolOperation }) {
   );
 }
 
+function GraphView({ data }: { data: GraphData }) {
+  if (!data.nodes.length) return <p className="text-zinc-500">Graph is empty.</p>;
+
+  return (
+    <div className="h-[320px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-black/20 flex flex-col">
+      <ScrollArea className="flex-1 p-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {data.nodes.map((node) => (
+            <div
+              key={node.id}
+              className="flex flex-col rounded-md border border-zinc-800 bg-zinc-900/60 p-2 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[9px] font-bold uppercase text-indigo-400/80">{node.type}</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/50" />
+              </div>
+              <span className="mt-1 line-clamp-1 text-[10px] font-medium text-zinc-200">{node.title}</span>
+              <span className="mt-0.5 line-clamp-2 text-[9px] text-zinc-500">{node.description}</span>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+      <div className="border-t border-zinc-800 bg-zinc-900/40 p-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">Active Relations</p>
+        <ScrollArea className="h-20">
+          <div className="space-y-1.5">
+            {data.edges.map((edge, i) => (
+              <div key={i} className="flex items-center gap-2 text-[9px] text-zinc-500">
+                <span className="text-zinc-300 font-mono">{edge.source.replace(/^[^_]+_/, '')}</span>
+                <span className="px-1 py-0.5 rounded bg-zinc-800 text-indigo-400 text-[8px] uppercase">{edge.type}</span>
+                <span className="text-zinc-300 font-mono">{edge.target.replace(/^[^_]+_/, '')}</span>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [intentText, setIntentText] = useState(
     "Plan my next week around my meetings, deadlines, workouts, and follow-ups",
@@ -105,6 +150,7 @@ export default function Home() {
   const [result, setResult] = useState<IntentResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [graphData, setGraphData] = useState<GraphData | null>(null);
 
   const loadAudit = useCallback(async () => {
     try {
@@ -116,9 +162,19 @@ export default function Home() {
     }
   }, []);
 
+  const loadGraph = useCallback(async () => {
+    try {
+      const data = await getGraph();
+      setGraphData(data);
+    } catch {
+      setGraphData(null);
+    }
+  }, []);
+
   useEffect(() => {
     void loadAudit();
-  }, [loadAudit]);
+    void loadGraph();
+  }, [loadAudit, loadGraph]);
 
   const runIntent = async () => {
     setLoading(true);
@@ -291,6 +347,16 @@ export default function Home() {
                   )}
                 </ul>
               </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>LifeGraph Visualization</CardTitle>
+              <CardDescription>Knowledge graph of entities & relations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {graphData ? <GraphView data={graphData} /> : <p className="text-sm text-zinc-500">Loading graph...</p>}
             </CardContent>
           </Card>
         </div>

@@ -2,6 +2,9 @@
 
 from datetime import datetime, timedelta, timezone
 
+from ..lifegraph.schema import Task, Goal, Project, Person, Communication, Relation, RelationType
+from ..lifegraph.storage import LifeGraphStorage
+
 UTC = timezone.utc
 
 
@@ -102,3 +105,97 @@ def seed_obsidian_notes() -> list[dict]:
             "body": "## Principles\n- Human-in-the-loop\n- Append-only by default\n",
         },
     ]
+
+
+def seed_lifegraph(storage: LifeGraphStorage) -> None:
+    """Seed LifeGraph with entities and relations."""
+    now = _now()
+    
+    # 1. Create entities
+    p1 = Project(
+        id="proj_life_os",
+        title="Life OS MVP",
+        description="Personal control plane prototype",
+        created_at=now - timedelta(days=10),
+        updated_at=now,
+        status="active"
+    )
+    g1 = Goal(
+        id="goal_mvp_demo",
+        title="Ship MVP demo video",
+        description="Record and edit a 2-min demo",
+        created_at=now - timedelta(days=5),
+        updated_at=now,
+        status="in_progress",
+        priority=1
+    )
+    t1 = Task(
+        id="task_alex_followup",
+        title="Follow up with Alex on Q1 priorities",
+        description="Check email thread th_alex_q1",
+        created_at=now - timedelta(days=1),
+        updated_at=now,
+        status="todo"
+    )
+    t2 = Task(
+        id="task_workout",
+        title="3x workouts this week",
+        created_at=now - timedelta(days=3),
+        updated_at=now,
+        status="todo"
+    )
+    person1 = Person(
+        id="person_alex",
+        title="Alex Rivera",
+        email="alex@example.com",
+        created_at=now - timedelta(days=30),
+        updated_at=now
+    )
+    comm1 = Communication(
+        id="comm_alex_q1",
+        title="Q1 roadmap email",
+        source_system="gmail",
+        source_id="th_alex_q1",
+        created_at=now - timedelta(hours=18),
+        updated_at=now - timedelta(hours=18)
+    )
+
+    # Save entities
+    storage.save_entity(p1)
+    storage.save_entity(g1)
+    storage.save_entity(t1)
+    storage.save_entity(t2)
+    storage.save_entity(person1)
+    storage.save_entity(comm1)
+
+    # 2. Create relations
+    storage.save_relation(Relation(
+        source_id=g1.id,
+        target_id=p1.id,
+        relation_type=RelationType.PART_OF,
+        created_at=now
+    ))
+    storage.save_relation(Relation(
+        source_id=t1.id,
+        target_id=g1.id,
+        relation_type=RelationType.DEPENDS_ON,
+        created_at=now
+    ))
+    storage.save_relation(Relation(
+        source_id=t1.id,
+        target_id=person1.id,
+        relation_type=RelationType.MENTIONS,
+        created_at=now
+    ))
+    storage.save_relation(Relation(
+        source_id=comm1.id,
+        target_id=person1.id,
+        relation_type=RelationType.MENTIONS,
+        created_at=now
+    ))
+    storage.save_relation(Relation(
+        source_id=t1.id,
+        target_id=comm1.id,
+        relation_type=RelationType.REFERENCES,
+        created_at=now
+    ))
