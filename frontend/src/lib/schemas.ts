@@ -11,6 +11,7 @@ export const ContextItemSchema = z.object({
   occurred_at: z.string().nullable().optional(),
   relevance: z.number(),
   importance: z.number(),
+  reasoning: z.string().optional(),
   metadata: z.record(z.string(), z.any()).optional(),
 });
 

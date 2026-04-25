@@ -336,6 +336,9 @@ export default function Home() {
                           </span>
                         </div>
                         <p className="mt-1 line-clamp-3 text-zinc-500">{it.body}</p>
+                        <p className="mt-1.5 text-[10px] text-indigo-400/80 italic">
+                          {it.reasoning || "Retrieved via keyword overlap"}
+                        </p>
                         <p className="mt-1 text-xs text-zinc-600">
                           relevance {(it.relevance * 100).toFixed(0)}% · importance{" "}
                           {(it.importance * 100).toFixed(0)}%

@@ -87,6 +87,7 @@ class ContextItem(BaseModel):
     occurred_at: datetime | None = None
     relevance: float = Field(ge=0.0, le=1.0)
     importance: float = Field(ge=0.0, le=1.0)
+    reasoning: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

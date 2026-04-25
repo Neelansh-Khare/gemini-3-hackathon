@@ -52,20 +52,33 @@ def assemble_context(
     obsidian: ObsidianConnector,
     top_k: int = 24,
 ) -> ContextPacket:
-    """Build ranked context from all four mock connectors."""
+    """Build ranked context from all four mock connectors with dynamic weighting."""
     items: list[ContextItem] = []
+    
+    # Detect intent to adjust weights
+    q_lower = user_query.lower()
+    time_sensitive = any(w in q_lower for w in ["next", "week", "today", "tomorrow", "deadline", "soon", "meeting", "schedule"])
+    
+    # Weights: Relevance, Importance, Recency
+    if time_sensitive:
+        w_rel, w_imp, w_rec = 0.35, 0.20, 0.45
+    else:
+        w_rel, w_imp, w_rec = 0.50, 0.30, 0.20
 
     for t in gmail.list_threads():
         body = f"{t.get('subject','')} {t.get('snippet','')} {t.get('from','')}"
+        kw_score = _keyword_overlap(user_query, body)
         imp = 0.9 if t.get("unread") else 0.4
         if "IMPORTANT" in t.get("labels", []):
             imp = min(1.0, imp + 0.05)
         od = t.get("internal_date")
-        if isinstance(od, datetime):
-            occ = od
-        else:
-            occ = None
-        rel = 0.5 * _keyword_overlap(user_query, body) + 0.5 * imp
+        occ = od if isinstance(od, datetime) else None
+        
+        rel = 0.5 * kw_score + 0.5 * imp
+        reason = f"Keyword match: {kw_score:.0%}"
+        if t.get("unread"):
+            reason += " · Unread priority"
+        
         items.append(
             ContextItem(
                 id=f"gmail:{t['id']}",
@@ -76,6 +89,7 @@ def assemble_context(
                 occurred_at=occ,
                 relevance=min(1.0, rel),
                 importance=imp,
+                reasoning=reason,
                 metadata={"from": t.get("from"), "unread": t.get("unread")},
             )
         )
@@ -84,7 +98,14 @@ def assemble_context(
         body = f"{e.get('title','')} {e.get('location','')}"
         st = e.get("start")
         occ = st if isinstance(st, datetime) else None
-        rel = 0.55 * _keyword_overlap(user_query, body) + 0.45 * _recency_score(occ)
+        kw_score = _keyword_overlap(user_query, body)
+        rec_score = _recency_score(occ)
+        rel = 0.55 * kw_score + 0.45 * rec_score
+        
+        reason = f"Keyword match: {kw_score:.0%}"
+        if rec_score > 0.8:
+            reason += " · Recent event"
+            
         items.append(
             ContextItem(
                 id=f"cal:{e['id']}",
@@ -95,13 +116,21 @@ def assemble_context(
                 occurred_at=occ,
                 relevance=rel,
                 importance=0.7,
+                reasoning=reason,
                 metadata={"start": e.get("start"), "end": e.get("end")},
             )
         )
 
     for n in notion.list_items():
         body = f"{n.get('title','')} {n.get('status','')} {n.get('due','')}"
-        rel = _keyword_overlap(user_query, body) * 0.7 + 0.3 * (0.85 if n.get("type") == "goal" else 0.65)
+        kw_score = _keyword_overlap(user_query, body)
+        type_boost = 0.85 if n.get("type") == "goal" else 0.65
+        rel = kw_score * 0.7 + 0.3 * type_boost
+        
+        reason = f"Keyword match: {kw_score:.0%}"
+        if n.get("type") == "goal":
+            reason += " · High-level goal boost"
+
         items.append(
             ContextItem(
                 id=f"notion:{n['id']}",
@@ -112,13 +141,16 @@ def assemble_context(
                 occurred_at=None,
                 relevance=min(1.0, rel),
                 importance=0.8 if n.get("type") == "goal" else 0.6,
+                reasoning=reason,
                 metadata={"status": n.get("status"), "due": n.get("due")},
             )
         )
 
     for note in obsidian.list_notes():
         body = f"{note.get('title','')} {note.get('body','')}"
-        rel = _keyword_overlap(user_query, body)
+        kw_score = _keyword_overlap(user_query, body)
+        rel = kw_score
+        
         items.append(
             ContextItem(
                 id=f"obs:{note['path']}",
@@ -129,13 +161,14 @@ def assemble_context(
                 occurred_at=None,
                 relevance=min(1.0, rel + 0.15),
                 importance=0.55,
+                reasoning=f"Keyword match: {kw_score:.0%}",
                 metadata={"path": note.get("path")},
             )
         )
 
     def sort_key(it: ContextItem) -> float:
         rec = _recency_score(it.occurred_at) if it.occurred_at else 0.55
-        return 0.45 * it.relevance + 0.25 * it.importance + 0.3 * rec
+        return w_rel * it.relevance + w_imp * it.importance + w_rec * rec
 
     items.sort(key=sort_key, reverse=True)
     trimmed = items[:top_k]
