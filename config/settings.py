@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     notion_api_key: str = ""
     notion_database_id: str = ""
 
+    # Obsidian
+    obsidian_vault_path: str = ""
+
     # Server
     api_host: str = "0.0.0.0"
     api_port: int = 8000

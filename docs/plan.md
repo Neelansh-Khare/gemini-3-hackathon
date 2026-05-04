@@ -46,13 +46,14 @@ While the foundation is strong, the following steps are needed to reach full "St
 2. **Enhanced Diff Preview**: 
     - [x] Move beyond JSON payload previews. Show a "Visual Diff" (e.g., "Calendar: Add 'Team Lunch' at 12pm") that is more legible for non-technical users.
 3. **Advanced Retrieval**:
-    - [x] Implement a simple vector-based retrieval if the dataset grows, or improve the heuristic to better handle "importance" vs "recency" tradeoffs. (Dynamic heuristic weighting implemented).
+    - [x] Implement vector-based retrieval using Gemini embeddings. (Dynamic heuristic weighting + Gemini embeddings implemented).
 
 ### Phase 3: Polish & UX (Stretch Goals)
 1. [x] **LifeGraph Visualization**: 
     - Add a "Graph View" component to show how a Task relates to a Goal or an Email thread.
-2. **Real API Integration**: 
-    - Add optional OAuth/API Key support for users who want to connect real accounts (keeping mock mode as the default for demos).
+2. [/] **Real API Integration**: 
+    - [x] Obsidian: Support for real local vault paths.
+    - [ ] Notion/Google: Add optional OAuth/API Key support for real accounts.
 3. [x] **Source Confidence Scores**: 
     - Show "why this source was used" in the context drawer.
 
@@ -70,4 +71,6 @@ While the foundation is strong, the following steps are needed to reach full "St
 1. [x] **[Backend]** Parallelize `AgentCouncil` deliberation and planner diversity calls.
 2. [x] **[Frontend]** Implement "Visual Diff" component (replaces raw JSON with pretty summary).
 3. [x] **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
+4. [x] **[Backend]** Vector-based Retrieval: Implement semantic search using Gemini embeddings.
+5. [x] **[Backend]** Real Obsidian Integration: Support for local vault paths in settings.
 

@@ -8,11 +8,13 @@ from .notion import NotionConnector
 from .obsidian import ObsidianConnector
 
 
-def mock_connectors() -> list[GmailConnector | CalendarConnector | NotionConnector | ObsidianConnector]:
+def mock_connectors(
+    obsidian_vault_path: str | None = None,
+) -> list[GmailConnector | CalendarConnector | NotionConnector | ObsidianConnector]:
     """Fresh mock connector bundle (in-memory demo state)."""
     return [
         GmailConnector(),
         CalendarConnector(),
         NotionConnector(),
-        ObsidianConnector(),
+        ObsidianConnector(vault_path=obsidian_vault_path),
     ]

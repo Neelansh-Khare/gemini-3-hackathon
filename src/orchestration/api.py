@@ -22,7 +22,7 @@ from src.orchestration.run_life_request import run_life_request
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    g, cal, n, ob = mock_connectors()
+    g, cal, n, ob = mock_connectors(obsidian_vault_path=settings.obsidian_vault_path)
     app.state.gmail = g
     app.state.calendar = cal
     app.state.notion = n

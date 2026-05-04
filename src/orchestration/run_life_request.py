@@ -45,7 +45,7 @@ async def run_life_request(
 ) -> dict[str, Any]:
     """Full pipeline for POST /intent."""
     intent = await council.parse_intent(user_intent)
-    packet = assemble_context(user_intent, gmail, calendar, notion, obsidian)
+    packet = await assemble_context(user_intent, gmail, calendar, notion, obsidian, gemini_api_key=gemini_api_key)
     ctx_items = [i.model_dump(mode="json") for i in packet.items]
 
     plans = await council.run_planner_multi(intent, ctx_items)
