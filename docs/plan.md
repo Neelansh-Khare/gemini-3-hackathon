@@ -6,10 +6,10 @@ The "Life OS" project is currently in a functional MVP state with a solid core a
 
 ### 1. Core Architecture
 - [x] **Connector Layer**: Implemented for Gmail, Calendar, Notion, and Obsidian. Support for mock mode with realistic seeded data is fully functional.
-- [x] **Unified Canonical Model**: The "LifeGraph" domain model (`src/lifegraph/schema.py`) includes entities like Person, Project, Goal, Task, Event, Decision, Note, and Communication.
-- [x] **Retrieval Layer**: A ranking module exists (`src/retrieval/context_assembler.py`) that uses keyword overlap, recency, and importance to gather context.
-- [x] **Multi-Agent Council**: Implementation exists in `AgentCouncil`. It uses Gemini to parse intent, generate multiple plans, and score them.
-- [x] **Orchestrator**: The central pipeline (`src/orchestration/run_life_request.py`) handles the full flow from intent to tool operation previews.
+- [x] **Unified Canonical Model**: The "LifeGraph" domain model (\`src/lifegraph/schema.py\`) includes entities like Person, Project, Goal, Task, Event, Decision, Note, and Communication.
+- [x] **Retrieval Layer**: A ranking module exists (\`src/retrieval/context_assembler.py\`) that uses keyword overlap, recency, and importance to gather context.
+- [x] **Multi-Agent Council**: Implementation exists in \`AgentCouncil\`. It uses Gemini to parse intent, generate multiple plans, and score them.
+- [x] **Orchestrator**: The central pipeline (\`src/orchestration/run_life_request.py\`) handles the full flow from intent to tool operation previews.
 
 ### 2. Frontend
 - [x] **Polished UI**: Built with Next.js 14, Tailwind CSS, and shadcn/ui.
@@ -51,9 +51,9 @@ While the foundation is strong, the following steps are needed to reach full "St
 ### Phase 3: Polish & UX (Stretch Goals)
 1. [x] **LifeGraph Visualization**: 
     - Add a "Graph View" component to show how a Task relates to a Goal or an Email thread.
-2. [/] **Real API Integration**: 
+2. [x] **Real API Integration**: 
     - [x] Obsidian: Support for real local vault paths.
-    - [ ] Notion/Google: Add optional OAuth/API Key support for real accounts.
+    - [x] Notion/Google: Add optional OAuth/API Key support for real accounts.
 3. [x] **Source Confidence Scores**: 
     - Show "why this source was used" in the context drawer.
 
@@ -61,16 +61,15 @@ While the foundation is strong, the following steps are needed to reach full "St
 
 ## Next Action Plan (Immediate)
 
-1. [x] **[Backend]** Refactor `AgentCouncil` to support sequential or parallel deliberation from separate agent prompts (Skeptic, Optimizer, Privacy).
-2. [x] **[Backend]** Implement a `POST /rollback` endpoint that can undo the last N actions from the audit log.
+1. [x] **[Backend]** Refactor \`AgentCouncil\` to support sequential or parallel deliberation from separate agent prompts (Skeptic, Optimizer, Privacy).
+2. [x] **[Backend]** Implement a \`POST /rollback\` endpoint that can undo the last N actions from the audit log.
 3. [x] **[Frontend]** Add "Undo" button to the Audit Log UI.
-4. [x] **[Backend]** Enhance `generate_diffs.py` to produce more descriptive `preview` strings for the UI.
+4. [x] **[Backend]** Enhance \`generate_diffs.py\` to produce more descriptive \`preview\` strings for the UI.
 
 ## Phase 1 & 2 Refinement (Next Tasks)
 
-1. [x] **[Backend]** Parallelize `AgentCouncil` deliberation and planner diversity calls.
+1. [x] **[Backend]** Parallelize \`AgentCouncil\` deliberation and planner diversity calls.
 2. [x] **[Frontend]** Implement "Visual Diff" component (replaces raw JSON with pretty summary).
 3. [x] **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
 4. [x] **[Backend]** Vector-based Retrieval: Implement semantic search using Gemini embeddings.
 5. [x] **[Backend]** Real Obsidian Integration: Support for local vault paths in settings.
-

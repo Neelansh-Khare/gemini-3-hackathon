@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = ""
+    google_token_path: str = "token.json"
+    google_credentials_path: str = "credentials.json"
 
     # Notion
     notion_api_key: str = ""
