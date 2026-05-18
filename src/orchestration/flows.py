@@ -10,6 +10,8 @@ from ..connectors.calendar import CalendarConnector
 from ..connectors.gmail import GmailConnector
 from ..connectors.notion import NotionConnector
 from ..connectors.obsidian import ObsidianConnector
+from ..lifegraph.storage import LifeGraphStorage
+from ..lifegraph.normalize import normalize_connector_record
 
 
 def _op_to_diff(op: ToolOperation) -> dict[str, Any]:
@@ -45,6 +47,7 @@ async def execute_tool_operations(
     notion: NotionConnector,
     obsidian: ObsidianConnector,
     audit: AuditLog | None = None,
+    lifegraph: LifeGraphStorage | None = None,
 ) -> dict[str, Any]:
     """Apply approved operations (subset allowed)."""
     results: list[dict[str, Any]] = []
@@ -62,6 +65,7 @@ async def execute_tool_operations(
                 or op.target_id
             )
             results.append({"id": op.id, "connector": op.connector.value, "status": "ok", "result": out})
+            
             if audit:
                 audit.log_execution(
                     connector=op.connector,
@@ -71,6 +75,20 @@ async def execute_tool_operations(
                     target_id=tid,
                     tool_operation_id=op.id,
                 )
+            
+            # Real-time LifeGraph Sync
+            if lifegraph and tid and out.get("ok"):
+                # We can't always get the full record back from apply_diff easily without extra calls,
+                # but we can try to sync it if it's a new entity.
+                # For now, we'll use a heuristic: if it was a 'create' or 'append', 
+                # we try to normalize the payload into a LifeGraph entity.
+                record = {**op.payload, "id": tid}
+                if op.connector == ConnectorName.GMAIL:
+                    record["is_draft"] = True
+                entity = normalize_connector_record(op.connector.value, record)
+                if entity:
+                    lifegraph.save_entity(entity)
+
         except Exception as e:
             results.append(
                 {"id": op.id, "connector": op.connector.value, "status": "error", "error": str(e)}
@@ -85,6 +103,7 @@ async def rollback_tool_operations(
     notion: NotionConnector,
     obsidian: ObsidianConnector,
     audit: AuditLog,
+    lifegraph: LifeGraphStorage | None = None,
 ) -> dict[str, Any]:
     """Undo specific audit log entries."""
     recent = audit.list_recent(limit=100)
@@ -105,13 +124,28 @@ async def rollback_tool_operations(
         }
         try:
             out = await conn.rollback(diff)
+            is_ok = out.get("ok")
             results.append({
                 "entry_id": entry.id,
                 "connector": entry.connector.value,
-                "status": "ok" if out.get("ok") else "error",
+                "status": "ok" if is_ok else "error",
                 "result": out
             })
-            # In a real system, we might log the rollback itself
+            
+            # Real-time LifeGraph Sync (Rollback)
+            if lifegraph and is_ok and entry.target_id:
+                # If we rolled back a creation, remove it from the graph
+                if entry.operation in (OperationKind.CREATE, OperationKind.DRAFT):
+                    # Need to map target_id back to LifeGraph ID format
+                    # prefix is usually connector:id
+                    lg_id = f"{entry.connector.value}:{entry.target_id}"
+                    if entry.connector == ConnectorName.GMAIL:
+                        lg_id = f"gmail_draft:{entry.target_id}"
+                    elif entry.connector == ConnectorName.OBSIDIAN:
+                        lg_id = f"obsidian:{entry.target_id}"
+                    
+                    lifegraph.delete_entity(lg_id)
+
         except Exception as e:
             results.append({
                 "entry_id": entry.id,

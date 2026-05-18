@@ -413,25 +413,45 @@ export default function Home() {
                       Risks: {p.risks.join("; ") || "—"} · Benefits: {p.benefits.join("; ") || "—"}
                     </p>
                     {result.council_recommendation?.scores?.[p.id] && (
-                      <div className="mt-2 flex gap-3 text-[10px]">
-                        <span className="text-zinc-500">
-                          Skeptic:{" "}
-                          <span className="text-zinc-300">
-                            {result.council_recommendation.scores[p.id].skeptic}/10
+                      <div className="mt-2 space-y-2">
+                        <div className="flex gap-3 text-[10px]">
+                          <span className="text-zinc-500">
+                            Skeptic:{" "}
+                            <span className="text-zinc-300">
+                              {result.council_recommendation.scores[p.id].skeptic}/10
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-zinc-500">
-                          Optimizer:{" "}
-                          <span className="text-zinc-300">
-                            {result.council_recommendation.scores[p.id].optimizer}/10
+                          <span className="text-zinc-500">
+                            Optimizer:{" "}
+                            <span className="text-zinc-300">
+                              {result.council_recommendation.scores[p.id].optimizer}/10
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-zinc-500">
-                          Privacy:{" "}
-                          <span className="text-zinc-300">
-                            {result.council_recommendation.scores[p.id].privacy}/10
+                          <span className="text-zinc-500">
+                            Privacy:{" "}
+                            <span className="text-zinc-300">
+                              {result.council_recommendation.scores[p.id].privacy}/10
+                            </span>
                           </span>
-                        </span>
+                        </div>
+                        
+                        {/* Detailed Reviews */}
+                        {result.council_recommendation.reviews && (
+                          <div className="border-t border-zinc-800/50 pt-2 text-[10px] text-zinc-400 space-y-1">
+                            {result.council_recommendation.reviews.skeptic?.[p.id]?.concerns?.length > 0 && (
+                              <p>
+                                <span className="text-red-400/80 font-medium">Skeptic:</span>{" "}
+                                {result.council_recommendation.reviews.skeptic[p.id].concerns[0].description}
+                              </p>
+                            )}
+                            {result.council_recommendation.reviews.optimizer?.[p.id]?.tradeoffs?.length > 0 && (
+                              <p>
+                                <span className="text-emerald-400/80 font-medium">Optimizer:</span>{" "}
+                                {result.council_recommendation.reviews.optimizer[p.id].tradeoffs[0]}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -96,6 +96,7 @@ async def handle_intent(req: IntentRequest, request: Request) -> dict[str, Any]:
         use_llm_executor=bool(key),
         gemini_api_key=key,
         gemini_model=settings.gemini_model,
+        lifegraph=st.lifegraph,
     )
 
 
@@ -112,6 +113,7 @@ async def approve_and_execute(req: ApproveRequest, request: Request) -> dict[str
         st.notion,
         st.obsidian,
         audit=st.audit,
+        lifegraph=st.lifegraph,
     )
 
 
@@ -128,6 +130,7 @@ async def rollback_entries(req: RollbackRequest, request: Request) -> dict[str, 
         st.notion,
         st.obsidian,
         audit=st.audit,
+        lifegraph=st.lifegraph,
     )
 
 

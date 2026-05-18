@@ -73,3 +73,9 @@ While the foundation is strong, the following steps are needed to reach full "St
 3. [x] **[Backend]** Improved Planner Diversity: Ensure 3 distinct strategy calls (Balanced, Aggressive, Conservative).
 4. [x] **[Backend]** Vector-based Retrieval: Implement semantic search using Gemini embeddings.
 5. [x] **[Backend]** Real Obsidian Integration: Support for local vault paths in settings.
+
+## Phase 4: LifeGraph Sync & Detailed Reviews (Next)
+
+1. [x] **[Backend]** Real-time LifeGraph Sync: Update LifeGraphStorage when tool operations are executed or rolled back.
+2. [x] **[Frontend]** Detailed Council Feedback: Show specific concerns/suggestions from Skeptic, Optimizer, and Privacy agents in the UI.
+3. [x] **[Backend]** Persistent Vector Cache: Store embeddings in LifeGraphStorage to avoid redundant API calls.

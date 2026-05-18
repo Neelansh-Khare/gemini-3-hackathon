@@ -42,6 +42,12 @@ class LifeGraphStorage:
                     FOREIGN KEY (target_id) REFERENCES entities(id),
                     PRIMARY KEY (source_id, target_id, relation_type)
                 );
+                CREATE TABLE IF NOT EXISTS entity_embeddings (
+                    entity_id TEXT PRIMARY KEY,
+                    embedding TEXT NOT NULL,
+                    text_hash TEXT,
+                    FOREIGN KEY (entity_id) REFERENCES entities(id)
+                );
                 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
                 CREATE INDEX IF NOT EXISTS idx_entities_source ON entities(source_system, source_id);
                 CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_id);
@@ -126,6 +132,46 @@ class LifeGraphStorage:
                 },
             )
             conn.commit()
+
+    def delete_entity(self, entity_id: str) -> None:
+        """Delete an entity and its relations."""
+        with self._connect() as conn:
+            conn.execute("DELETE FROM relations WHERE source_id = ? OR target_id = ?", (entity_id, entity_id))
+            conn.execute("DELETE FROM entity_embeddings WHERE entity_id = ?", (entity_id,))
+            conn.execute("DELETE FROM entities WHERE id = ?", (entity_id,))
+            conn.commit()
+
+    def delete_relation(self, source_id: str, target_id: str, relation_type: str) -> None:
+        """Delete a specific relation."""
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM relations WHERE source_id = ? AND target_id = ? AND relation_type = ?",
+                (source_id, target_id, relation_type),
+            )
+            conn.commit()
+
+    def save_embedding(self, entity_id: str, embedding: list[float], text_hash: str | None = None) -> None:
+        """Cache embedding for an entity."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO entity_embeddings (entity_id, embedding, text_hash)
+                VALUES (?, ?, ?)
+                ON CONFLICT(entity_id) DO UPDATE SET
+                    embedding=excluded.embedding,
+                    text_hash=excluded.text_hash
+                """,
+                (entity_id, json.dumps(embedding), text_hash),
+            )
+            conn.commit()
+
+    def get_embedding(self, entity_id: str) -> list[float] | None:
+        """Retrieve cached embedding."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT embedding FROM entity_embeddings WHERE entity_id = ?", (entity_id,)).fetchone()
+            if row:
+                return json.loads(row["embedding"])
+        return None
 
 
 def _entity_factory(entity_type: EntityType, payload: dict) -> Entity:

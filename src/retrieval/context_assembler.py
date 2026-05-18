@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from ..connectors.gmail import GmailConnector
     from ..connectors.notion import NotionConnector
     from ..connectors.obsidian import ObsidianConnector
+    from ..lifegraph.storage import LifeGraphStorage
 
 
 def _tokenize(q: str) -> set[str]:
@@ -80,6 +82,7 @@ async def assemble_context(
     obsidian: ObsidianConnector,
     top_k: int = 24,
     gemini_api_key: str | None = None,
+    lifegraph: LifeGraphStorage | None = None,
 ) -> ContextPacket:
     """Build ranked context from all four mock connectors with dynamic weighting and optional vector search."""
     items: list[ContextItem] = []
@@ -110,9 +113,16 @@ async def assemble_context(
     semantic_scores: dict[str, float] = {}
     if gemini_api_key:
         client = genai.Client(api_key=gemini_api_key)
-        # Prepare text for embedding
-        texts_to_embed = []
+        
+        # Prepare text and check cache
+        texts_to_embed: list[str] = []
+        item_keys: list[str] = []
+        doc_embeddings: list[list[float]] = []
+        
         for rd, conn, kind in raw_data:
+            item_id = rd.get("id") or rd.get("path")
+            lookup_key = f"{conn.value}:{item_id}"
+            
             if conn == ConnectorName.GMAIL:
                 text = f"{rd.get('subject','')} {rd.get('snippet','')}"
             elif conn == ConnectorName.CALENDAR:
@@ -121,18 +131,40 @@ async def assemble_context(
                 text = f"{rd.get('title','')} {rd.get('status','')}"
             else: # Obsidian
                 text = f"{rd.get('title','')} {rd.get('body','')}"
-            texts_to_embed.append(text[:2000]) # Truncate for safety
+            
+            text = text[:2000]
+            text_hash = hashlib.md5(text.encode()).hexdigest()
+            
+            cached = lifegraph.get_embedding(lookup_key) if lifegraph else None
+            if cached:
+                doc_embeddings.append(cached)
+            else:
+                texts_to_embed.append(text)
+                item_keys.append(lookup_key)
+                doc_embeddings.append([]) # Placeholder
 
-        # Batch embed query and docs
-        all_embeddings = await _get_embeddings([user_query] + texts_to_embed, client)
-        if all_embeddings:
-            query_emb = all_embeddings[0]
-            doc_embs = all_embeddings[1:]
-            for i, emb in enumerate(doc_embs):
+        # Fetch missing embeddings
+        query_embs = await _get_embeddings([user_query], client)
+        if not query_embs:
+            return ContextPacket(query=user_query, items=[], summary="Embedding failed.")
+        query_emb = query_embs[0]
+        if texts_to_embed:
+            new_embs = await _get_embeddings(texts_to_embed, client)
+            for i, emb in enumerate(new_embs):
+                # Save to cache
+                if lifegraph:
+                    lifegraph.save_embedding(item_keys[i], emb)
+                # Fill placeholders
+                for j, de in enumerate(doc_embeddings):
+                    if de == [] and item_keys[i] == f"{raw_data[j][1].value}:{raw_data[j][0].get('id') or raw_data[j][0].get('path')}":
+                        doc_embeddings[j] = emb
+                        break
+
+        # Compute similarities
+        for i, emb in enumerate(doc_embeddings):
+            if emb:
                 sim = _cosine_similarity(query_emb, emb)
-                # Map similarity (-1 to 1) to 0-1 range
                 score = (sim + 1) / 2
-                # Unique key: connector + id/path
                 rd, conn, _ = raw_data[i]
                 item_id = rd.get("id") or rd.get("path")
                 semantic_scores[f"{conn.value}:{item_id}"] = score

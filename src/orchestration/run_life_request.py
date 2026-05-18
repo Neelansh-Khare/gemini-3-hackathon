@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from ..connectors.gmail import GmailConnector
     from ..connectors.notion import NotionConnector
     from ..connectors.obsidian import ObsidianConnector
+    from ..lifegraph.storage import LifeGraphStorage
 
 
 def _pick_plan(plans: list[CandidatePlan], recommended_id: str | None) -> CandidatePlan:
@@ -42,10 +43,19 @@ async def run_life_request(
     use_llm_executor: bool = True,
     gemini_api_key: str | None = None,
     gemini_model: str = "gemini-2.0-flash",
+    lifegraph: LifeGraphStorage | None = None,
 ) -> dict[str, Any]:
     """Full pipeline for POST /intent."""
     intent = await council.parse_intent(user_intent)
-    packet = await assemble_context(user_intent, gmail, calendar, notion, obsidian, gemini_api_key=gemini_api_key)
+    packet = await assemble_context(
+        user_intent,
+        gmail,
+        calendar,
+        notion,
+        obsidian,
+        gemini_api_key=gemini_api_key,
+        lifegraph=lifegraph,
+    )
     ctx_items = [i.model_dump(mode="json") for i in packet.items]
 
     plans = await council.run_planner_multi(intent, ctx_items)
