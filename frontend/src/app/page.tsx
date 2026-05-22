@@ -20,6 +20,7 @@ type AuditEntry = {
   connector: string;
   operation: string;
   payload_summary: string;
+  status: "executed" | "rolled_back";
 };
 
 type GraphData = {
@@ -437,18 +438,48 @@ export default function Home() {
                         
                         {/* Detailed Reviews */}
                         {result.council_recommendation.reviews && (
-                          <div className="border-t border-zinc-800/50 pt-2 text-[10px] text-zinc-400 space-y-1">
+                          <div className="border-t border-zinc-800/50 pt-2 text-[10px] text-zinc-400 space-y-2">
+                            {/* Skeptic Concerns */}
                             {result.council_recommendation.reviews.skeptic?.[p.id]?.concerns?.length > 0 && (
-                              <p>
-                                <span className="text-red-400/80 font-medium">Skeptic:</span>{" "}
-                                {result.council_recommendation.reviews.skeptic[p.id].concerns[0].description}
-                              </p>
+                              <div className="space-y-1">
+                                <span className="text-red-400/80 font-medium">Skeptic Concerns:</span>
+                                {result.council_recommendation.reviews.skeptic[p.id].concerns.map((c: any, i: number) => (
+                                  <p key={i} className="pl-2 border-l border-red-900/30">
+                                    • {c.description} <span className="text-[8px] opacity-60">({c.severity})</span>
+                                  </p>
+                                ))}
+                              </div>
                             )}
+
+                            {/* Optimizer Tradeoffs */}
                             {result.council_recommendation.reviews.optimizer?.[p.id]?.tradeoffs?.length > 0 && (
-                              <p>
-                                <span className="text-emerald-400/80 font-medium">Optimizer:</span>{" "}
-                                {result.council_recommendation.reviews.optimizer[p.id].tradeoffs[0]}
-                              </p>
+                              <div className="space-y-1">
+                                <span className="text-emerald-400/80 font-medium">Optimizer Tradeoffs:</span>
+                                {result.council_recommendation.reviews.optimizer[p.id].tradeoffs.map((t: string, i: number) => (
+                                  <p key={i} className="pl-2 border-l border-emerald-900/30">• {t}</p>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Privacy Issues */}
+                            {(result.council_recommendation.reviews.privacy?.[p.id]?.issues?.length > 0 || 
+                              (result.council_recommendation.reviews.privacy?.[p.id]?.checks && 
+                               Object.values(result.council_recommendation.reviews.privacy[p.id].checks).some(v => v === false))) && (
+                              <div className="space-y-1">
+                                <span className="text-blue-400/80 font-medium">Privacy & Safety:</span>
+                                {result.council_recommendation.reviews.privacy[p.id].issues?.map((issue: string, i: number) => (
+                                  <p key={i} className="pl-2 border-l border-blue-900/30">• {issue}</p>
+                                ))}
+                                {result.council_recommendation.reviews.privacy[p.id].checks && 
+                                  Object.entries(result.council_recommendation.reviews.privacy[p.id].checks)
+                                    .filter(([_, v]) => v === false)
+                                    .map(([k, _], i) => (
+                                      <p key={`fail-${i}`} className="pl-2 border-l border-blue-900/30 text-amber-500/80">
+                                        • Failed check: {k.replace(/_/g, ' ')}
+                                      </p>
+                                    ))
+                                }
+                              </div>
                             )}
                           </div>
                         )}
@@ -552,19 +583,28 @@ export default function Home() {
                       <li key={a.id} className="group relative rounded border border-zinc-800 p-2">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <span className="text-zinc-500">{a.timestamp}</span>{" "}
+                            <div className="flex items-center gap-2">
+                              <span className="text-zinc-500">{a.timestamp}</span>
+                              {a.status === "rolled_back" && (
+                                <span className="rounded bg-amber-950/40 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-amber-500 border border-amber-900/50">
+                                  Rolled Back
+                                </span>
+                              )}
+                            </div>
                             <span className="text-indigo-400">{a.connector}</span> · {a.operation}
                             <p className="mt-1 text-zinc-500">{a.payload_summary}</p>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-[10px] opacity-0 group-hover:opacity-100"
-                            onClick={() => void rollbackEntry(a.id)}
-                            disabled={execLoading}
-                          >
-                            Undo
-                          </Button>
+                          {a.status !== "rolled_back" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-[10px] opacity-0 group-hover:opacity-100"
+                              onClick={() => void rollbackEntry(a.id)}
+                              disabled={execLoading}
+                            >
+                              Undo
+                            </Button>
+                          )}
                         </div>
                       </li>
                     ))

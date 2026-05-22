@@ -114,3 +114,4 @@ class AuditEntry(BaseModel):
     payload_summary: str
     payload: dict[str, Any] = Field(default_factory=dict)
     tool_operation_id: str | None = None
+    status: Literal["executed", "rolled_back"] = "executed"

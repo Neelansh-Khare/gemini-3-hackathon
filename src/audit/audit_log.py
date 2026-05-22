@@ -29,10 +29,16 @@ class AuditLog:
                     target_id TEXT,
                     payload_summary TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
-                    tool_operation_id TEXT
+                    tool_operation_id TEXT,
+                    status TEXT DEFAULT 'executed'
                 )
                 """
             )
+            # Check if status column exists (for migrations)
+            cursor = conn.execute("PRAGMA table_info(audit_entries)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "status" not in columns:
+                conn.execute("ALTER TABLE audit_entries ADD COLUMN status TEXT DEFAULT 'executed'")
             conn.commit()
 
     def append(self, entry: AuditEntry) -> None:
@@ -40,8 +46,8 @@ class AuditLog:
             conn.execute(
                 """
                 INSERT INTO audit_entries
-                (id, timestamp, connector, operation, target_id, payload_summary, payload_json, tool_operation_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (id, timestamp, connector, operation, target_id, payload_summary, payload_json, tool_operation_id, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     entry.id,
@@ -52,9 +58,19 @@ class AuditLog:
                     entry.payload_summary,
                     json.dumps(entry.payload),
                     entry.tool_operation_id,
+                    entry.status,
                 ),
             )
             conn.commit()
+
+    def update_status(self, entry_id: str, status: str) -> bool:
+        with sqlite3.connect(str(self._path)) as conn:
+            cursor = conn.execute(
+                "UPDATE audit_entries SET status = ? WHERE id = ?",
+                (status, entry_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
 
     def log_execution(
         self,
@@ -75,6 +91,7 @@ class AuditLog:
             payload_summary=payload_summary,
             payload=payload,
             tool_operation_id=tool_operation_id,
+            status="executed",
         )
         self.append(entry)
         return entry
@@ -102,6 +119,7 @@ class AuditLog:
                     payload_summary=r["payload_summary"],
                     payload=json.loads(r["payload_json"] or "{}"),
                     tool_operation_id=r["tool_operation_id"],
+                    status=r["status"] if "status" in r.keys() else "executed",
                 )
             )
         return out

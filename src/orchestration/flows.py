@@ -132,6 +132,10 @@ async def rollback_tool_operations(
                 "result": out
             })
             
+            # Update Audit Log status
+            if is_ok:
+                audit.update_status(entry.id, "rolled_back")
+            
             # Real-time LifeGraph Sync (Rollback)
             if lifegraph and is_ok and entry.target_id:
                 # If we rolled back a creation, remove it from the graph
