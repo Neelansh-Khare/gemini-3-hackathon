@@ -89,7 +89,7 @@ class AgentCouncil:
         )
         return response.text or "{}"
 
-    async def parse_intent(self, user_message: str) -> dict[str, Any]:
+    async def parse_intent(self, user_message: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
         if not self._client:
             return {
                 "goal": user_message,
@@ -97,7 +97,12 @@ class AgentCouncil:
                 "constraints": [],
                 "preferred_systems": [],
             }
-        prompt = INTENT_PARSING_PROMPT.format(intent=user_message)
+        
+        history_str = ""
+        if history:
+            history_str = "Conversation history:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history]) + "\n\n"
+            
+        prompt = f"{history_str}{INTENT_PARSING_PROMPT.format(intent=user_message)}"
         text = await self._generate(prompt)
         try:
             return json.loads(text)
@@ -113,12 +118,16 @@ class AgentCouncil:
         self,
         intent: dict[str, Any],
         context_items: list[dict[str, Any]],
+        history: list[dict[str, str]] | None = None,
     ) -> list[CandidatePlan]:
         """Produce 3 distinct plans (Balanced, Aggressive, Conservative) in parallel."""
         if not self._client:
             return seed_candidate_plans()
         
         ctx_str = json.dumps(context_items, indent=2, default=str)[:8000]
+        history_str = ""
+        if history:
+            history_str = "Conversation history:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history]) + "\n\n"
         
         strategies = [
             ("balanced", "A balanced approach minimizing risk while ensuring progress."),
@@ -127,7 +136,7 @@ class AgentCouncil:
         ]
         
         async def get_plan(id_tag: str, strategy: str) -> list[CandidatePlan]:
-            prompt = f"""User goal: {json.dumps(intent)}
+            prompt = f"""{history_str}User goal: {json.dumps(intent)}
 Strategy: {strategy}
 Retrieved context items:
 {ctx_str}

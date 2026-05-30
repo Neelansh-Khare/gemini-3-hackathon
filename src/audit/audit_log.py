@@ -34,11 +34,54 @@ class AuditLog:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS conversation_history (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL
+                )
+                """
+            )
             # Check if status column exists (for migrations)
             cursor = conn.execute("PRAGMA table_info(audit_entries)")
             columns = [row[1] for row in cursor.fetchall()]
             if "status" not in columns:
                 conn.execute("ALTER TABLE audit_entries ADD COLUMN status TEXT DEFAULT 'executed'")
+            
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_session_id ON conversation_history(session_id)")
+            conn.commit()
+
+    def add_message(self, session_id: str, role: str, content: str) -> None:
+        with sqlite3.connect(str(self._path)) as conn:
+            conn.execute(
+                """
+                INSERT INTO conversation_history (id, session_id, timestamp, role, content)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (str(uuid.uuid4()), session_id, datetime.utcnow().isoformat(), role, content),
+            )
+            conn.commit()
+
+    def get_messages(self, session_id: str, limit: int = 20) -> list[dict[str, str]]:
+        with sqlite3.connect(str(self._path)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT role, content FROM conversation_history
+                WHERE session_id = ?
+                ORDER BY timestamp ASC
+                LIMIT ?
+                """,
+                (session_id, limit),
+            ).fetchall()
+            return [{"role": r["role"], "content": r["content"]} for r in rows]
+
+    def clear_messages(self, session_id: str) -> None:
+        with sqlite3.connect(str(self._path)) as conn:
+            conn.execute("DELETE FROM conversation_history WHERE session_id = ?", (session_id,))
             conn.commit()
 
     def append(self, entry: AuditEntry) -> None:

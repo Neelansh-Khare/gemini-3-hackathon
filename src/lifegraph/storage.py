@@ -84,7 +84,14 @@ class LifeGraphStorage:
         return g
 
     def save_entity(self, entity: Entity) -> None:
-        """Upsert a single entity."""
+        """Upsert a single entity with basic deduping."""
+        # Load graph to check for duplicates
+        graph = self.load()
+        from .dedupe import find_duplicates
+        duplicate_id = find_duplicates(entity, graph)
+        
+        target_id = duplicate_id if duplicate_id else entity.id
+        
         payload = entity.model_dump()
         with self._connect() as conn:
             conn.execute(
@@ -99,7 +106,7 @@ class LifeGraphStorage:
                     payload=excluded.payload
                 """,
                 {
-                    "id": entity.id,
+                    "id": target_id,
                     "type": entity.type,
                     "title": entity.title,
                     "description": entity.description or "",

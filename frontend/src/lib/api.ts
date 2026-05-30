@@ -7,11 +7,11 @@ export function getApiBase(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 }
 
-export async function postIntent(intent: string) {
+export async function postIntent(intent: string, session_id = "default") {
   const res = await fetch(`${getApiBase()}/intent`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ intent }),
+    body: JSON.stringify({ intent, session_id }),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -24,6 +24,14 @@ export async function postIntent(intent: string) {
     return data as unknown as z.infer<typeof IntentResponseSchema>;
   }
   return parsed.data;
+}
+
+export async function getHistory(session_id = "default") {
+  const res = await fetch(`${getApiBase()}/history/${session_id}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`History ${res.status}`);
+  return res.json() as Promise<{ messages: Array<{ role: string; content: string }> }>;
 }
 
 export async function postApprove(tool_operations: ToolOperation[]) {

@@ -1,16 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { getAudit, getGraph, postApprove, postIntent, postResetDemo, postRollback, type ToolOperation } from "@/lib/api";
+import { getAudit, getGraph, postApprove, postIntent, postResetDemo, postRollback, getHistory, type ToolOperation } from "@/lib/api";
 import type { z } from "zod";
 import { IntentResponseSchema } from "@/lib/schemas";
+
+// Dynamic import for force graph to avoid SSR issues
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
 type IntentResponse = z.infer<typeof IntentResponseSchema>;
 
@@ -24,7 +28,7 @@ type AuditEntry = {
 };
 
 type GraphData = {
-  nodes: Array<{ id: string; type: string; title: string; description: string }>;
+  nodes: Array<{ id: string; type: string; title: string; description: string; x?: number; y?: number }>;
   edges: Array<{ source: string; target: string; type: string }>;
 };
 
@@ -102,27 +106,57 @@ function VisualDiff({ op }: { op: ToolOperation }) {
 }
 
 function GraphView({ data }: { data: GraphData }) {
+  const fgRef = useRef<any>();
   if (!data.nodes.length) return <p className="text-zinc-500">Graph is empty.</p>;
 
+  const graphData = {
+    nodes: data.nodes.map(n => ({ ...n })),
+    links: data.edges.map(e => ({ source: e.source, target: e.target, label: e.type }))
+  };
+
+  const nodeColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'goal': return '#818cf8'; // indigo-400
+      case 'project': return '#c084fc'; // purple-400
+      case 'task': return '#fbbf24'; // amber-400
+      case 'event': return '#4ade80'; // green-400
+      case 'person': return '#f87171'; // red-400
+      case 'communication': return '#22d3ee'; // cyan-400
+      case 'note': return '#94a3b8'; // slate-400
+      default: return '#6366f1';
+    }
+  };
+
   return (
-    <div className="h-[320px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-black/20 flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {data.nodes.map((node) => (
-            <div
-              key={node.id}
-              className="flex flex-col rounded-md border border-zinc-800 bg-zinc-900/60 p-2 shadow-sm"
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[9px] font-bold uppercase text-indigo-400/80">{node.type}</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/50" />
-              </div>
-              <span className="mt-1 line-clamp-1 text-[10px] font-medium text-zinc-200">{node.title}</span>
-              <span className="mt-0.5 line-clamp-2 text-[9px] text-zinc-500">{node.description}</span>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+    <div className="h-[400px] w-full overflow-hidden rounded-lg border border-zinc-800 bg-black/20 flex flex-col relative">
+      <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-2 pointer-events-none">
+        {['Goal', 'Task', 'Event', 'Comm', 'Note'].map(t => (
+          <div key={t} className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded border border-zinc-800/50">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: nodeColor(t === 'Comm' ? 'communication' : t) }} />
+            <span className="text-[8px] uppercase font-bold text-zinc-400">{t}</span>
+          </div>
+        ))}
+      </div>
+      
+      <ForceGraph2D
+        ref={fgRef}
+        graphData={graphData}
+        nodeLabel={(n: any) => `${n.type}: ${n.title}`}
+        nodeColor={(n: any) => nodeColor(n.type)}
+        nodeRelSize={6}
+        linkDirectionalArrowLength={3}
+        linkDirectionalArrowRelPos={1}
+        linkColor={() => '#3f3f46'}
+        linkWidth={1}
+        backgroundColor="rgba(0,0,0,0)"
+        width={600}
+        height={400}
+        onNodeClick={(node: any) => {
+          fgRef.current.centerAt(node.x, node.y, 1000);
+          fgRef.current.zoom(2, 1000);
+        }}
+      />
+      
       <div className="border-t border-zinc-800 bg-zinc-900/40 p-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">Active Relations</p>
         <ScrollArea className="h-20">
@@ -152,6 +186,7 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [history, setHistory] = useState<Array<{ role: string; content: string }>>([]);
 
   const loadAudit = useCallback(async () => {
     try {
@@ -172,10 +207,20 @@ export default function Home() {
     }
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await getHistory("default");
+      setHistory(data.messages);
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
   useEffect(() => {
     void loadAudit();
     void loadGraph();
-  }, [loadAudit, loadGraph]);
+    void loadHistory();
+  }, [loadAudit, loadGraph, loadHistory]);
 
   const runIntent = async () => {
     setLoading(true);
@@ -186,6 +231,8 @@ export default function Home() {
       setResult(parsed.success ? parsed.data : (data as IntentResponse));
       const ops = (parsed.success ? parsed.data : (data as IntentResponse)).tool_operations;
       setSelectedIds(new Set(ops.map((o) => o.id)));
+      await loadHistory();
+      setIntentText("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
       setResult(null);
@@ -224,6 +271,7 @@ export default function Home() {
     try {
       await postApprove(ops as ToolOperation[]);
       await loadAudit();
+      await loadGraph();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Execute failed");
     } finally {
@@ -236,6 +284,7 @@ export default function Home() {
     try {
       await postRollback([id]);
       await loadAudit();
+      await loadGraph();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rollback failed");
     } finally {
@@ -250,6 +299,8 @@ export default function Home() {
       setResult(null);
       setSelectedIds(new Set());
       await loadAudit();
+      await loadGraph();
+      await loadHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reset failed");
     } finally {
@@ -297,22 +348,48 @@ export default function Home() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         {/* Left column: chat + context */}
         <div className="flex flex-col gap-6">
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
-              <CardTitle>Request</CardTitle>
-              <CardDescription>High-level intent (demo flow from PRD)</CardDescription>
+              <CardTitle>Request & Conversation</CardTitle>
+              <CardDescription>Multi-turn intent parsing</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea
-                value={intentText}
-                onChange={(e) => setIntentText(e.target.value)}
-                placeholder="What should Life OS plan?"
-              />
-              <Button variant="primary" className="w-full" onClick={() => void runIntent()} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Run orchestration
-              </Button>
-              {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            <CardContent className="space-y-4 flex flex-col flex-1">
+              <ScrollArea className="h-[240px] rounded-md border border-zinc-800 bg-zinc-950/30 p-4">
+                <div className="space-y-4">
+                  {history.length === 0 ? (
+                    <p className="text-zinc-500 text-sm italic">No conversation history yet.</p>
+                  ) : (
+                    history.map((msg, i) => (
+                      <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <span className="text-[10px] uppercase font-bold text-zinc-600 mb-1">
+                          {msg.role === 'user' ? 'You' : 'Assistant'}
+                        </span>
+                        <div className={`rounded-lg px-3 py-2 text-sm max-w-[85%] ${
+                          msg.role === 'user' 
+                            ? 'bg-indigo-600/20 text-indigo-100 border border-indigo-500/30' 
+                            : 'bg-zinc-800/50 text-zinc-300 border border-zinc-700/50'
+                        }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+              
+              <div className="space-y-3">
+                <Textarea
+                  value={intentText}
+                  onChange={(e) => setIntentText(e.target.value)}
+                  placeholder="What should Life OS plan? (Follow-ups supported)"
+                  className="min-h-[80px]"
+                />
+                <Button variant="primary" className="w-full" onClick={() => void runIntent()} disabled={loading || !intentText.trim()}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {history.length > 0 ? 'Send Follow-up' : 'Run orchestration'}
+                </Button>
+                {error ? <p className="text-sm text-red-400">{error}</p> : null}
+              </div>
             </CardContent>
           </Card>
 

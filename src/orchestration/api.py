@@ -56,6 +56,7 @@ app.add_middleware(
 
 class IntentRequest(BaseModel):
     intent: str
+    session_id: str = "default"
 
 
 class ApproveRequest(BaseModel):
@@ -86,7 +87,11 @@ async def handle_intent(req: IntentRequest, request: Request) -> dict[str, Any]:
     council = _council()
     st = request.app.state
     key = settings.gemini_api_key.strip() or None
-    return await run_life_request(
+    
+    # Retrieve history
+    history = st.audit.get_messages(req.session_id)
+    
+    res = await run_life_request(
         req.intent,
         council,
         st.gmail,
@@ -97,7 +102,20 @@ async def handle_intent(req: IntentRequest, request: Request) -> dict[str, Any]:
         gemini_api_key=key,
         gemini_model=settings.gemini_model,
         lifegraph=st.lifegraph,
+        history=history,
     )
+    
+    # Save to history
+    st.audit.add_message(req.session_id, "user", req.intent)
+    st.audit.add_message(req.session_id, "assistant", res.get("summary", ""))
+    
+    return res
+
+
+@app.get("/history/{session_id}", response_model=dict[str, Any])
+async def get_history(session_id: str, request: Request) -> dict[str, Any]:
+    messages = request.app.state.audit.get_messages(session_id)
+    return {"messages": messages}
 
 
 @app.post("/approve", response_model=dict[str, Any])
@@ -171,4 +189,5 @@ async def reset_demo(request: Request) -> dict[str, str]:
     st.calendar.reset()
     st.notion.reset()
     st.obsidian.reset()
+    st.audit.clear_messages("default")
     return {"status": "reset"}

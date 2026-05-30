@@ -44,9 +44,10 @@ async def run_life_request(
     gemini_api_key: str | None = None,
     gemini_model: str = "gemini-2.0-flash",
     lifegraph: LifeGraphStorage | None = None,
+    history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Full pipeline for POST /intent."""
-    intent = await council.parse_intent(user_intent)
+    intent = await council.parse_intent(user_intent, history=history)
     packet = await assemble_context(
         user_intent,
         gmail,
@@ -58,7 +59,7 @@ async def run_life_request(
     )
     ctx_items = [i.model_dump(mode="json") for i in packet.items]
 
-    plans = await council.run_planner_multi(intent, ctx_items)
+    plans = await council.run_planner_multi(intent, ctx_items, history=history)
     rec = await council.score_and_recommend(plans, intent)
     chosen = _pick_plan(plans, rec.get("recommended_plan_id"))
 

@@ -263,7 +263,7 @@ async def assemble_context(
             
             items.append(
                 ContextItem(
-                    id=f"obs:{rd['path']}",
+                    id=f"obsidian:{rd['path']}",
                     source=ConnectorName.OBSIDIAN,
                     kind="note",
                     title=rd.get("title", rd.get("path", "")),
@@ -281,6 +281,52 @@ async def assemble_context(
         return w_rel * it.relevance + w_imp * it.importance + w_rec * rec
 
     items.sort(key=sort_key, reverse=True)
+
+    # 4. Graph-Augmented Retrieval (New Phase 6)
+    if lifegraph:
+        graph = lifegraph.load()
+        # Take top 6 items and find neighbors in the graph
+        top_ids = [it.id for it in items[:6]]
+        neighbors: list[Any] = []
+        for tid in top_ids:
+            nn = graph.get_neighbors(tid)
+            neighbors.extend(nn)
+        
+        # Boost neighbors or add them if missing
+        existing_ids = {it.id for it in items}
+        for n in neighbors:
+            if n.id in existing_ids:
+                # Boost existing item
+                for it in items:
+                    if it.id == n.id:
+                        it.relevance = min(1.0, it.relevance + 0.20)
+                        if "Graph-boosted" not in it.reasoning:
+                            it.reasoning += " · Graph-boosted (related to top match)"
+                        break
+            else:
+                # Add new discovered item from graph
+                try:
+                    conn_enum = ConnectorName(n.source_system)
+                except Exception:
+                    conn_enum = ConnectorName.NOTION
+                    
+                items.append(
+                    ContextItem(
+                        id=n.id,
+                        source=conn_enum,
+                        kind=n.type.value,
+                        title=n.title,
+                        body=n.description or "",
+                        occurred_at=None,
+                        relevance=0.75,
+                        importance=0.6,
+                        reasoning=f"Graph-discovered: related to top matches via '{n.type.value}'",
+                        metadata=n.metadata,
+                    )
+                )
+        # Re-sort after graph augmentation
+        items.sort(key=sort_key, reverse=True)
+
     trimmed = items[:top_k]
     summary_bits = [f"- [{it.source.value}] {it.title}" for it in trimmed[:8]]
     return ContextPacket(
