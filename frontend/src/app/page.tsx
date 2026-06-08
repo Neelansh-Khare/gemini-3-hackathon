@@ -187,6 +187,7 @@ export default function Home() {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [history, setHistory] = useState<Array<{ role: string; content: string }>>([]);
+  const [sessionId, setSessionId] = useState<string>("default");
 
   const loadAudit = useCallback(async () => {
     try {
@@ -209,12 +210,12 @@ export default function Home() {
 
   const loadHistory = useCallback(async () => {
     try {
-      const data = await getHistory("default");
+      const data = await getHistory(sessionId);
       setHistory(data.messages);
     } catch {
       setHistory([]);
     }
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
     void loadAudit();
@@ -226,7 +227,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await postIntent(intentText);
+      const data = await postIntent(intentText, sessionId);
       const parsed = IntentResponseSchema.safeParse(data);
       setResult(parsed.success ? parsed.data : (data as IntentResponse));
       const ops = (parsed.success ? parsed.data : (data as IntentResponse)).tool_operations;
@@ -239,6 +240,15 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const startNewSession = () => {
+    const newId = `session-${Math.random().toString(36).substring(2, 9)}`;
+    setSessionId(newId);
+    setResult(null);
+    setSelectedIds(new Set());
+    setHistory([]);
+    setIntentText("");
   };
 
   const toggleOp = (id: string, checked: boolean) => {
@@ -349,9 +359,14 @@ export default function Home() {
         {/* Left column: chat + context */}
         <div className="flex flex-col gap-6">
           <Card className="flex flex-col">
-            <CardHeader>
-              <CardTitle>Request & Conversation</CardTitle>
-              <CardDescription>Multi-turn intent parsing</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Request & Conversation</CardTitle>
+                <CardDescription>Multi-turn intent parsing</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={startNewSession} className="h-8 text-[10px] uppercase font-bold tracking-wider text-indigo-400">
+                New Chat
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4 flex flex-col flex-1">
               <ScrollArea className="h-[240px] rounded-md border border-zinc-800 bg-zinc-950/30 p-4">
